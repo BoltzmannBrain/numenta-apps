@@ -19,6 +19,8 @@
 import fs from 'fs';
 import os from 'os';
 import isElectronRenderer from 'is-electron-renderer';
+import fileService from './FileService';
+import instantiator from 'json-schema-instantiator';
 import json2csv from 'json2csv-stream';
 import leveldown from 'leveldown';
 import levelup from 'levelup';
@@ -27,7 +29,6 @@ import sublevel from 'level-sublevel';
 import Batch from 'level-sublevel/batch';
 import {Validator} from 'jsonschema';
 import Utils from './Utils';
-
 
 // Schemas
 import {
@@ -42,13 +43,14 @@ import {
 
   PFInputSchema,
   PFOutputSchema
-} from '../schemas';
+} from '../database/schema';
 
 const SCHEMAS = [
   DBFileSchema, DBMetricDataSchema, DBMetricSchema, DBModelDataSchema,
   MRAggregationSchema, MRInputSchema, MRModelSchema,
   PFInputSchema, PFOutputSchema
 ];
+
 
 /**
  * Calculate default database location. If running inside `Electron` then use
@@ -69,12 +71,23 @@ function _getDefaultDatabaseLocation() {
 }
 
 /**
+ * Helper function used to stringify the callback results. This is required when
+ * transmiting objects via Electron's `remote` function.
+ * @param  {Function} callback The original callback
+ * @return {Function}          A callback that will call the original callback
+ *                             with the results stringified
+ */
+function stringifyResultsCallback(callback) {
+  return (error, data) => callback(error, JSON.stringify(data));
+}
+
+
+/**
  * Unicorn: DatabaseService - Respond to a DatabaseClient over IPC.
  *  For sharing our access to a file-based NodeJS database system.
  *  Meant for heavy persistence.
  * @param {string} [path] - Database location path (optional)
  */
-
 export class DatabaseService {
 
   constructor(path) {
@@ -99,17 +112,19 @@ export class DatabaseService {
 
   /**
    * Get a single File.
-   * @param {string} uid - Unique ID of file to get
-   * @param {Function} callback - Async callback function(error, results)
+   * @param {string} uid Unique ID of file to get
+   * @param {Function} callback Async callback function(error, results).
+   *                            The results will be JSON.stringified
    */
   getFile(uid, callback) {
-    this._files.get(uid, callback);
+    this._files.get(uid, stringifyResultsCallback(callback));
   }
 
   /**
    * Get all Files.
-   * @param {Function} callback - Async callback function(error, results)
-   */
+   * @param {Function} callback Async callback function(error, results)
+   *                            The results will be JSON.stringified
+*/
   getAllFiles(callback) {
     let results = [];
     this._files.createValueStream()
@@ -118,22 +133,25 @@ export class DatabaseService {
       })
       .on('error', callback)
       .on('end', () => {
-        callback(null, results);
+        let remoteCallback = stringifyResultsCallback(callback);
+        remoteCallback(null, results);
       });
   }
 
   /**
    * Get a single Metric.
    * @param {string} uid - Unique ID of metric to get
-   * @param {Function} callback - Async callback function(error, results)
+   * @param {Function} callback Async callback function(error, results)
+   *                            The results will be JSON.stringified
    */
   getMetric(uid, callback) {
-    this._metrics.get(uid, callback);
+    this._metrics.get(uid, stringifyResultsCallback(callback));
   }
 
   /**
    * Get all Metrics.
-   * @param {Function} callback - Async callback function(error, results)
+   * @param {Function} callback Async callback function(error, results)
+   *                            The results will be JSON.stringified
    */
   getAllMetrics(callback) {
     let results = [];
@@ -143,14 +161,16 @@ export class DatabaseService {
       })
       .on('error', callback)
       .on('end', () => {
-        callback(null, results);
+        let remoteCallback = stringifyResultsCallback(callback);
+        remoteCallback(null, results);
       });
   }
 
   /**
    * Get all metrics of the given file Id
    * @param {string}   fileId    The ID of the file to get metrics
-   * @param {Function} callback - Async callback function(error, results)
+   * @param {Function} callback Async callback function(error, results)
+   *                            The results will be JSON.stringified
    */
   getMetricsByFile(fileId, callback) {
     let results = [];
@@ -164,7 +184,8 @@ export class DatabaseService {
     })
     .on('error', callback)
     .on('end', () => {
-      callback(null, results);
+      let remoteCallback = stringifyResultsCallback(callback);
+      remoteCallback(null, results);
     });
   }
 
@@ -172,7 +193,8 @@ export class DatabaseService {
    * Get all/queried ModelData records.
    * @callback
    * @param {string} metricId Metric ID
-   * @param {Function} callback - Async callback: function (error, results)
+   * @param {Function} callback Async callback: function (error, results)
+   *                            The results will be JSON.stringified
    */
   getModelData(metricId, callback) {
     let results = [];
@@ -186,7 +208,8 @@ export class DatabaseService {
     })
     .on('error', callback)
     .on('end', () => {
-      callback(null, results);
+      let remoteCallback = stringifyResultsCallback(callback);
+      remoteCallback(null, results);
     });
   }
 
@@ -194,7 +217,8 @@ export class DatabaseService {
    * Get all/queried MetricData records.
    * @callback
    * @param {string} metricId Metric ID
-   * @param {Function} callback - Async callback: function (error, results)
+   * @param {Function} callback Async callback: function (error, results)
+   *                            The results will be JSON.stringified
    */
   getMetricData(metricId, callback) {
     let results = [];
@@ -208,16 +232,21 @@ export class DatabaseService {
     })
     .on('error', callback)
     .on('end', () => {
-      callback(null, results);
+      let remoteCallback = stringifyResultsCallback(callback);
+      remoteCallback(null, results);
     });
   }
 
   /**
    * Put a single File to DB.
    * @param {Object} file - Data object of File info to save
-   * @param {Function} callback - Async callback on done: function(error, results)
+   * @param {Function} callback - Async done callback: function(error, results)
    */
   putFile(file, callback) {
+    if (typeof file === 'string') {
+      file = JSON.parse(file);
+    }
+
     const validation = this.validator.validate(file, DBFileSchema);
 
     if (validation.errors.length) {
@@ -232,9 +261,13 @@ export class DatabaseService {
    * Put multiple Files into DB.
    * @callback
    * @param {Array} files - List of File objects to insert
-   * @param {Function} callback - Async result handler: function (error, results)
+   * @param {Function} callback - Async done handler: function (error, results)
    */
   putFileBatch(files, callback) {
+    if (typeof files === 'string') {
+      files = JSON.parse(files);
+    }
+
     for (let i = 0; i < files.length; i++) {
       const validation = this.validator.validate(files[i], DBFileSchema);
       if (validation.errors.length) {
@@ -257,9 +290,13 @@ export class DatabaseService {
   /**
    * Put a single Metric to DB.
    * @param {Object} metric - Data object of Metric info to save
-   * @param {Function} callback - Async callback on done: function(error, results)
+   * @param {Function} callback - Async done callback: function(error, results)
    */
   putMetric(metric, callback) {
+    if (typeof metric === 'string') {
+      metric = JSON.parse(metric);
+    }
+
     const validation = this.validator.validate(metric, DBMetricSchema);
     if (validation.errors.length) {
       callback(validation.errors, null);
@@ -272,9 +309,13 @@ export class DatabaseService {
   /**
    * Put multiple Metrics into DB.
    * @param {Array} metrics - Data objects of Metrics info to save
-   * @param {Function} callback - Async callback on done: function(error, results)
+   * @param {Function} callback - Async done callback: function(error, results)
    */
   putMetricBatch(metrics, callback) {
+    if (typeof metrics === 'string') {
+      metrics = JSON.parse(metrics);
+    }
+
     for (let i = 0; i < metrics.length; i++) {
       const validation = this.validator.validate(metrics[i], DBMetricSchema);
       if (validation.errors.length) {
@@ -297,16 +338,14 @@ export class DatabaseService {
   /**
    * Put a single ModelData record to DB.
    * @param {Object} data - ModelData object to save
-   * @param {Function} callback - Async callback on done: function(error, results)
+   * @param {Function} callback - Async done callback: function(error, results)
    */
   putModelData(data, callback) {
-    const validation = this.validator.validate(data, DBModelDataSchema);
-
     if (typeof data === 'string') {
-      // JSONify here to get around Electron IPC remote() memory leaks
       data = JSON.parse(data);
     }
 
+    const validation = this.validator.validate(data, DBModelDataSchema);
     if (validation.errors.length) {
       callback(validation.errors, null);
       return;
@@ -319,11 +358,10 @@ export class DatabaseService {
   /**
    * Put multiple ModelData records into DB.
    * @param {Array} data - List of ModelData objects to save
-   * @param {Function} callback - Async callback on done: function(error, results)
+   * @param {Function} callback - Async done callback: function(error, results)
    */
   putModelDataBatch(data, callback) {
     if (typeof data === 'string') {
-      // JSONify here to get around Electron IPC remote() memory leaks
       data = JSON.parse(data);
     }
 
@@ -349,15 +387,13 @@ export class DatabaseService {
   /**
    * Put a single MetricData record to DB.
    * @param {Object} metricData - Data object of MetricData info to save
-   * @param {Function} callback - Async callback on done: function(error, results)
+   * @param {Function} callback - Async done callback: function(error, results)
    */
   putMetricData(metricData, callback) {
-    const validation = this.validator.validate(metricData, DBMetricDataSchema);
-
     if (typeof metricData === 'string') {
-      // JSONify here to get around Electron IPC remote() memory leaks
       metricData = JSON.parse(metricData);
     }
+    const validation = this.validator.validate(metricData, DBMetricDataSchema);
 
     if (validation.errors.length) {
       callback(validation.errors, null);
@@ -371,11 +407,10 @@ export class DatabaseService {
   /**
    * Put multiple MetricData records into DB.
    * @param {Array} data - List of Metric Data objects of MetricDatas to save
-   * @param {Function} callback - Async callback on done: function(error, results)
+   * @param {Function} callback - Async done callback: function(error, results)
    */
   putMetricDataBatch(data, callback) {
     if (typeof data === 'string') {
-      // JSONify here to get around Electron IPC remote() memory leaks
       data = JSON.parse(data);
     }
 
@@ -409,8 +444,8 @@ export class DatabaseService {
 
   /**
    * Closes the underlying LevelDB store.
-   * @param {Function} callback - Receive any error encountered during closing as
-   *  the first argument.
+   * @param {Function} callback - Receive any error encountered during closing
+   *  as the first argument.
    */
   close(callback) {
     this.levelup.db.close(callback);
@@ -423,7 +458,7 @@ export class DatabaseService {
    * @param  {Function} callback called when the export operation is complete,
    *                             with a possible error argument
    */
-  exportModelData(metricId, filename, callback) { // eslint-disable-line
+  exportModelData(metricId, filename, callback) {
     const output = fs.createWriteStream(filename);
     const parser = json2csv({
       keys: ['timestamp', 'metric_value', 'anomaly_score']
@@ -547,7 +582,24 @@ export class DatabaseService {
    * @param  {Function} callback called when the operation is complete,
    *                             with a possible error argument
    */
-  deleteFile(fileId, callback) {
+  deleteFileById(fileId, callback) {
+    this._files.del(fileId, (error) => {
+      if (error) {
+        callback(error);
+        return;
+      }
+      this.deleteMetricsByFile(fileId, callback);
+    });
+  }
+
+  /**
+   * Delete metric and associated metrics from database.
+   * @param  {string}   filename   File to delete
+   * @param  {Function} callback called when the operation is complete,
+   *                             with a possible error argument
+   */
+  deleteFile(filename, callback) {
+    let fileId = Utils.generateFileId(filename);
     this._files.del(fileId, (error) => {
       if (error) {
         callback(error);
@@ -567,7 +619,11 @@ export class DatabaseService {
    * @param  {Function} callback called when the operation is complete,
    *                             with a possible error argument
    */
-  setMetricAggregationOptions(metricId, options, callback) { // eslint-disable-line
+  setMetricAggregationOptions(metricId, options, callback) {
+    if (typeof options === 'string') {
+      options = JSON.parse(options);
+    }
+
     this._metrics.get(metricId, (error, metric) => {
       if (error) {
         callback(error);
@@ -581,14 +637,17 @@ export class DatabaseService {
   /**
    * Update model options for the given metric. Usually this value is
    * obtained via the {@link ParamFinderService}
-   *
-   * @param {string}   metricId    Metric to update
-   * @param {object}   options     Model option to use for the given metric.
-   *                               Usually obtained via {@link ParamFinderService}
-   * @param  {Function} callback called when the operation is complete,
-   *                             with a possible error argument
+   * @param {String} metricId - Metric to update
+   * @param {Object} options - Model option to use for the given metric.
+   *                           Usually obtained via {@link ParamFinderService}
+   * @param {Function} callback - Called when the operation is complete,
+   *                              with a possible error argument.
    */
-  setMetricModelOptions(metricId, options, callback) { // eslint-disable-line
+  setMetricModelOptions(metricId, options, callback) {
+    if (typeof options === 'string') {
+      options = JSON.parse(options);
+    }
+
     this._metrics.get(metricId, (error, metric) => {
       if (error) {
         callback(error);
@@ -602,14 +661,17 @@ export class DatabaseService {
   /**
    * Update input options for the given metric. Usually this value is
    * obtained via the {@link ParamFinderService}
-   *
-   * @param {string}   metricId    Metric to update
-   * @param {object}   options     Input option to use for the given metric.
-   *                               Usually obtained via {@link ParamFinderService}
-   * @param  {Function} callback called when the operation is complete,
-   *                             with a possible error argument
+   * @param {String} metricId - Metric to update
+   * @param {Object} options - Input option to use for the given metric.
+   *                           Usually obtained via {@link ParamFinderService}
+   * @param {Function} callback - Called when the operation is complete,
+   *                              with a possible error argument.
    */
-  setMetricInputOptions(metricId, options, callback) { // eslint-disable-line
+  setMetricInputOptions(metricId, options, callback) {
+    if (typeof options === 'string') {
+      options = JSON.parse(options);
+    }
+
     this._metrics.get(metricId, (error, metric) => {
       if (error) {
         callback(error);
@@ -619,6 +681,91 @@ export class DatabaseService {
       this.putMetric(metric, callback);
     });
   }
+
+  /**
+   * Upload a new file to the database performing the following steps:
+   *  1) Save file metadata
+   *  2) Save fields/metrics metadata
+   *  3) Save metric data
+   *
+   * @param {string|File} fileToUpload - Full path name or preconfigured File
+   *                                     object. See {@link DBFileSchema}.
+   * @param {Function} callback - Called when the operation is complete with the
+   *                              uploaded file record or error.
+   */
+  uploadFile(fileToUpload, callback) {
+    let file = fileToUpload;
+    if (typeof file === 'string') {
+      file = instantiator.instantiate(DBFileSchema);
+      file.uid = Utils.generateFileId(fileToUpload);
+      file.filename = fileToUpload;
+      file.name = path.basename(fileToUpload);
+      file.type = 'uploaded';
+    } else {
+      // Validate file object
+      const validation = this.validator.validate(file, DBFileSchema);
+      if (validation.errors.length) {
+        callback(validation.errors);
+        return;
+      }
+    }
+    let promisify = Utils.promisify;
+    // Save file
+    promisify(::this.putFile, file)
+      // Load metrics from file
+      .then(() => promisify(::fileService.getFields, file.filename))
+      // Create metrics for each numeric and timestamp fields
+      .then((fields) => {
+        let metrics = fields.filter((field) => {
+          return ['date', 'number'].includes(field.type);
+        });
+        return promisify(::this.putMetricBatch, metrics)
+          .then(() => Promise.resolve(metrics));
+      })
+      // Load data
+      .then((metrics) => {
+        // Find timestamp field
+        let timestampField = metrics.find((field) => {
+          return field.type === 'date';
+        }).name;
+
+        // Load data from file
+        fileService.getData(
+          file.filename,
+          {objectMode: true},
+          (error, data) => {
+            if (error) {
+              throw error;
+            }
+            if (data) {
+              metrics.forEach((field) => {
+                // Save metric for each numeric field
+                if (field.type === 'number') {
+                  let mid = Utils.generateMetricId(file.filename, field.name);
+                  let metricData = {
+                    metric_uid: mid,
+                    timestamp: data[timestampField],
+                    metric_value: parseFloat(data[field.name])
+                  };
+                  // Save data
+                  this.putMetricData(metricData, (error) => { // eslint-disable-line
+                    if (error) {
+                      throw error;
+                    }
+                  });
+                }
+              });
+            } else {
+              // No more data
+              callback(null, file);
+              return;
+            }
+          }
+        );
+      })
+      .catch(callback);
+  }
+
 }
 
 // Returns singleton

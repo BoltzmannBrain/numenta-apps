@@ -20,8 +20,9 @@ import React from 'react';
 import RGBColor from 'rgbcolor';
 
 import Chart from '../components/Chart';
-import ModelDataStore from '../stores/ModelDataStore';
 import MetricDataStore from '../stores/MetricDataStore';
+import ModelDataStore from '../stores/ModelDataStore';
+import ModelStore from '../stores/ModelStore';
 import RangeSelectorBarChart from '../lib/Dygraphs/RangeSelectorBarChartPlugin';
 import Utils from '../../main/Utils';
 
@@ -30,7 +31,7 @@ import Utils from '../../main/Utils';
  * React Component for sending Model Data from Model component to
  *  Chart component.
  */
-@connectToStores([ModelDataStore, MetricDataStore], () => ({}))
+@connectToStores([MetricDataStore, ModelDataStore, ModelStore], () => ({}))
 export default class ModelData extends React.Component {
 
   static get contextTypes() {
@@ -156,42 +157,50 @@ export default class ModelData extends React.Component {
 
   render() {
     let metricDataStore = this.context.getStore(MetricDataStore);
-    let metricData = metricDataStore.getData(this.props.modelId);
+    let modelDataStore = this.context.getStore(ModelDataStore);
+    let modelStore = this.context.getStore(ModelStore);
+
+    let modelId = this.props.modelId;
+    let metricData = metricDataStore.getData(modelId);
+    let modelData = modelDataStore.getData(modelId);
+    let model = modelStore.getModel(modelId);
+
     let {anomaly, options} = this._chartOptions;
     let {axes, labels, series} = this._chartOptions.value;
-    let metaData = {length: {metric: 0, model: 0}};
     let anomalyIndex = 2;
+    let metaData = {model, length: {metric: 0, model: 0}};
     let data = [];
-    let modelData, modelDataStore;
 
-    if (metricData.length) {
-      // Copy raw data and timestamp
+    if (metricData && metricData.length && !model.aggregated) {
+      // using metric data
       data = Array.from(metricData);
       metaData.length.metric = metricData.length;
+    }
+    if (model && modelData.data && modelData.data.length) {
+      // using model data
+      if (model.aggregated) {
+        // use only model data in "aggregated data mode"
+        data = Array.from(modelData.data);
+      } else {
+        // append model data to current metric data for "raw data mode"
+        data.forEach((item) => item[anomalyIndex] = Number.NaN);  // init
 
-      // Get model data
-      modelDataStore = this.context.getStore(ModelDataStore);
-      modelData = modelDataStore.getData(this.props.modelId);
-      if (modelData && modelData.data.length > 0) {
-        // Initialize Anomaly values to NaN
-        data.forEach((item) => item[anomalyIndex] = Number.NaN);
-        metaData.length.model = modelData.data.length;
-        // Update anomaly values
+        // Update values: ts, value, anomaly
         modelData.data.forEach((item, rowid) => {
-          let score = item[anomalyIndex];
           if (rowid < data.length) {
-            data[rowid][anomalyIndex] = score;
+            data[rowid][anomalyIndex] = item[anomalyIndex];
           }
         });
-
-        // Format anomaly series
-        labels = labels.concat(anomaly.labels);
-        Object.assign(axes, anomaly.axes);
-        Object.assign(series, anomaly.series);
       }
+      metaData.length.model = modelData.data.length;
 
-      Object.assign(options, {axes, labels, series});
-    } // if metricData
+      // Format anomaly series
+      labels = labels.concat(anomaly.labels);
+      Object.assign(axes, anomaly.axes);
+      Object.assign(series, anomaly.series);
+    }
+
+    Object.assign(options, {axes, labels, series});
 
     return (
       <Chart data={data} metaData={metaData} options={options} />

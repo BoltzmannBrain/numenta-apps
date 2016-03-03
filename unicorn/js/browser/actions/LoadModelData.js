@@ -1,4 +1,4 @@
-// Copyright © 2016, Numenta, Inc.  Unless you have purchased from
+// Copyright © 2015, Numenta, Inc.  Unless you have purchased from
 // Numenta, Inc. a separate commercial license for this software code, the
 // following terms and conditions apply:
 //
@@ -15,30 +15,33 @@
 //
 // http://numenta.org/licenses/
 
+
 import {ACTIONS} from '../lib/Constants';
 
-
 /**
- * Load metric data
+ * Load model data
  * @param  {FluxibleContext} actionContext [description]
  * @param  {string} metricId      [description]
- * @emits {LOAD_METRIC_DATA_FAILED}
- * @emits {LOAD_METRIC_DATA}
+ * @emits {LOAD_MODEL_DATA_FAILED}
+ * @emits {LOAD_MODEL_DATA}
  * @return {Promise}
  */
 export default function (actionContext, metricId) {
   return new Promise((resolve, reject) => {
     let db = actionContext.getDatabaseClient();
-    db.getMetricData(metricId, (error, metricData) => {
+    db.getModelData(metricId, (error, modelData) => {
       if (error) {
-        actionContext.dispatch(ACTIONS.LOAD_METRIC_DATA_FAILED, error);
+        actionContext.dispatch(ACTIONS.LOAD_MODEL_DATA_FAILED, error);
         reject(error);
       } else {
-        metricData = JSON.parse(metricData);
-        let data = metricData.map((row) => {
-          return [new Date(row.timestamp), row.metric_value];
+        // Extract data from record
+        modelData = JSON.parse(modelData);
+        let data = modelData.map((record) => [
+          record.timestamp, record.metric_value, record.anomaly_score
+        ]);
+        actionContext.dispatch(ACTIONS.LOAD_MODEL_DATA, {
+          modelId: metricId, data
         });
-        actionContext.dispatch(ACTIONS.LOAD_METRIC_DATA, {metricId, data});
         resolve(data);
       }
     });

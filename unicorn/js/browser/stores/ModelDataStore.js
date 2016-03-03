@@ -33,7 +33,9 @@ export default class ModelDataStore extends BaseStore {
    */
   static get handlers() {
     return {
-      RECEIVE_MODEL_DATA: '_handReceiveModelData',
+      RECEIVE_MODEL_DATA: '_handleReceiveModelData',
+      HIDE_MODEL: '_handleHideModel',
+      LOAD_MODEL_DATA: '_handleLoadModelData',
       DELETE_MODEL: '_handleDeleteModel'
     };
   }
@@ -44,36 +46,46 @@ export default class ModelDataStore extends BaseStore {
   }
 
   /**
-   * Received new data for a specific model.
-   * @param  {Object} payload The action payload in the following format:
-   *                          <code>
-   *                          {
-   *                          	modelId: {String}, // Required model id
-   *                          	data:{Array}},     // New data to be appended
-   *                          }
-   *                          </code>
+   * Append data to the specified model
+   * @param  {string} modelId   The model to add data
+   * @param  {Array} data       New data to be appended
    */
-  _handReceiveModelData(payload) {
-    // console.log('DEBUG: ModelDataStores:payload', payload);
-    if (payload && 'modelId' in payload) {
-      let model = this._models.get(payload.modelId);
-      if (model) {
-        // Append payload data to existing model
-        model.data.push(...payload.data);
+  _appendModelData(modelId, data) {
+    let model = this._models.get(modelId);
+    if (model) {
+      // Append payload data to existing model
+      model.data.push(...data);
+      // Record last time this model was modified
+      model.modified = new Date();
+    } else {
+      // New model
+      this._models.set(modelId, {
+        modelId,
+        data: data || [],
         // Record last time this model was modified
-        model.modified = new Date();
-      } else {
-        // New model
-        this._models.set(payload.modelId, {
-          modelId: payload.modelId,
-          data: payload.data || [],
-          // Record last time this model was modified
-          modified: new Date()
-        });
-      }
-      // console.log('DEBUG: ModelDataStores:model', model);
-      this.emitChange();
+        modified: new Date()
+      });
     }
+    this.emitChange();
+  }
+
+  _handleReceiveModelData(payload) {
+    let {modelId, data} = payload;
+    this._appendModelData(modelId, data);
+  }
+
+  _handleLoadModelData(payload) {
+    let {modelId, data} = payload;
+    this._appendModelData(modelId, data);
+  }
+
+  /**
+   * Hide model
+   * @param {string} modelId - Model to delete
+   */
+  _handleHideModel(modelId) {
+    this._models.delete(modelId);
+    this.emitChange();
   }
 
   /**

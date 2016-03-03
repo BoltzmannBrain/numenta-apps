@@ -34,6 +34,7 @@ export default function (actionContext) {
         actionContext.dispatch(ACTIONS.LIST_FILES_FAILURE, error);
         reject(error);
       } else {
+        files = JSON.parse(files);
         actionContext.dispatch(ACTIONS.LIST_FILES, files);
         resolve(files);
       }

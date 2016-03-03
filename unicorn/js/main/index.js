@@ -16,26 +16,111 @@
 //
 // http://numenta.org/licenses/
 
-
 import {app, BrowserWindow, crashReporter, dialog, Menu} from 'electron';
 import bunyan from 'bunyan';
 import path from 'path';
 
 import config from './ConfigService';
+import database from './DatabaseService';
+import fileService from './FileService';
+import modelService from './ModelService';
+import paramFinderService from './ParamFinderService';
 import MainMenu from './MainMenu';
 import ModelServiceIPC from './ModelServiceIPC';
 import ParamFinderServiceIPC from './ParamFinderServiceIPC';
+import Utils from './Utils';
 
-const DEV = config.get('NODE_ENV') !== 'production';
 const log = bunyan.createLogger({
   level: 'debug',  // @TODO higher for Production
   name: config.get('title')
 });
 const initialPage = path.join(__dirname, config.get('browser:entry'));
 
-let mainWindow = null; // global ref to keep window object from JS GC
-let modelService = null;
-let paramFinderService = null;
+let activeModels = new Map();  // Active models and their event handlers
+let mainWindow = null;  // global ref to keep window object from JS GC
+let modelServiceIPC = null;
+let paramFinderServiceIPC = null;
+
+
+/**
+ * Initialize the application populating local data on first run
+ */
+function initializeApplicationData() {
+  // Check if running for the first time
+  let initialized = config.get('initialized');
+  if (!initialized) {
+    let promisify = Utils.promisify;
+    // Load sample files from the file system
+    promisify(::fileService.getSampleFiles)
+      // Save all sample files to the database
+      .then((files) => Promise.all(
+        files.map((file) => promisify(::database.uploadFile, file)))
+      )
+      .then(() => {
+        // Make sure to only run once
+        config.set('initialized', true);
+        config.save();
+      })
+      .catch((error) => {
+        console.log(error); // eslint-disable-line
+        dialog.showErrorBox('Error', error);
+      });
+  }
+}
+
+/**
+ * Handles model data event saving the results to the database
+ * @param  {string} modelId Model receiving data
+ * @param  {Array} data    model data in the following format:
+ *                         [timestamp, metric_value, anomaly_score]
+ */
+function receiveModelData(modelId, data) {
+  let [timestamp, value, score] = data; // eslint-disable-line
+  let metricData = {
+    metric_uid: modelId,
+    timestamp,
+    metric_value: value,
+    anomaly_score: score
+  };
+  database.putModelData(metricData, (error) => {
+    if (error) {
+      log.error('Error saving model data', error, metricData);
+    }
+  });
+}
+
+/**
+ * Handle application wide model services events
+ */
+function handleModelEvents() {
+  // Attach event handler on model creation
+  modelService.on('newListener', (modelId, listener) => {
+    if (!activeModels.has(modelId)) {
+      let listener = (command, data) => { // eslint-disable-line
+        try {
+          if (command === 'data') {
+            // Handle model data
+            receiveModelData(modelId, JSON.parse(data));
+          }
+        } catch (e) {
+          log.error('Model Error', e, modelId, command, data);
+        }
+      };
+      activeModels.set(modelId, listener);
+      modelService.on(modelId, listener);
+    }
+  });
+
+  // Detach event handler on model close
+  modelService.on('removeListener', (modelId, listener) => {
+    if (activeModels.has(modelId)) {
+      let listener = activeModels.get(modelId);
+      activeModels.delete(modelId);
+      modelService.removeListener(modelId, listener);
+    }
+  });
+}
+
 
 /**
  * Unicorn: Cross-platform Desktop Application to showcase basic HTM features
@@ -43,6 +128,7 @@ let paramFinderService = null;
  *
  * Main Electron code Application entry point, initializes browser app.
  */
+
 crashReporter.start({
   companyName: config.get('company'),
   productName: config.get('title'),
@@ -55,6 +141,9 @@ app.on('window-all-closed', () => {
 
 // Electron finished init and ready to create browser window
 app.on('ready', () => {
+  // Initialize application data
+  initializeApplicationData();
+
   // set main menu
   Menu.setApplicationMenu(Menu.buildFromTemplate(MainMenu));
 
@@ -67,9 +156,6 @@ app.on('ready', () => {
   });
   mainWindow.loadURL(`file://${initialPage}`);
   mainWindow.center();
-  if (DEV) {
-    // mainWindow.openDevTools();
-  }
 
   // browser window events
   mainWindow.on('closed', () => {
@@ -87,11 +173,14 @@ app.on('ready', () => {
     log.info('Electron Main: Renderer DOM is now ready!');
   });
 
+  // Handle model service events
+  handleModelEvents();
+
   // Handle IPC communication for the ModelService
-  modelService = new ModelServiceIPC();
-  modelService.start(mainWindow.webContents);
+  modelServiceIPC = new ModelServiceIPC(modelService);
+  modelServiceIPC.start(mainWindow.webContents);
 
   // Handle IPC communication for the ParamFinderService
-  paramFinderService = new ParamFinderServiceIPC();
-  paramFinderService.start(mainWindow.webContents);
+  paramFinderServiceIPC = new ParamFinderServiceIPC(paramFinderService);
+  paramFinderServiceIPC.start(mainWindow.webContents);
 });

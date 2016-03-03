@@ -17,7 +17,6 @@
 //
 // http://numenta.org/licenses/
 
-
 import {ipcRenderer as ipc} from 'electron';
 
 import ModelErrorAction from '../../actions/ModelError';
@@ -25,6 +24,7 @@ import ReceiveModelDataAction from '../../actions/ReceiveModelData';
 import StopModelAction from '../../actions/StopModel';
 
 const MODEL_SERVER_IPC_CHANNEL = 'MODEL_SERVER_IPC_CHANNEL';
+
 
 /**
  * Unicorn: ModelClient - Talk to a ModelService over IPC, gaining
@@ -104,7 +104,9 @@ export default class ModelClient {
     // Multiple data records are separated by `\n`
     let data = payload.trim().split('\n').map((row) => {
       if (row) {
-        return JSON.parse(row);
+        row = JSON.parse(row);
+        row[0] = new Date(row[0]); // timestamp => js date
+        return row;
       }
     });
     this._context.executeAction(ReceiveModelDataAction, {modelId, data});

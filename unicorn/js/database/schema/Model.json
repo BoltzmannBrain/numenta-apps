@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "id": "/db/Model",
+  "type": "object",
+  "properties": {
+    "modelId": {
+      "type": "string",
+      "maxLength": 50,
+      "minLength": 1,
+      "description": "Model Unique ID",
+      "required": true
+    },
+    "filename": {
+      "type": "string",
+      "description": "File full path name",
+      "required": true
+    },
+    "timestampField": {
+      "type": "string",
+      "description": "Timestamp field name",
+      "required": true
+    },
+    "metric": {
+      "type": "string",
+      "description": "Metric field name",
+      "required": true
+    },
+    "active": {
+      "type": "boolean",
+      "description": "Whether or not this model is running"
+    },
+    "aggregated": {
+      "type": "boolean",
+      "description": "Whether or not this model is using aggregated data"
+    },
+    "ran": {
+      "type": "boolean",
+      "description": "Whether not this metric model has run once"
+    },
+    "visible": {
+      "type": "boolean",
+      "description": "Whether or not this model is visible"
+    },
+    "error": {
+      "type": "string",
+      "description": "Last known error or null for no error"
+    }
+  },
+  "additionalProperties": false
+}

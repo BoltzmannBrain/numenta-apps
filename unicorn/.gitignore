@@ -1,6 +1,8 @@
 *.egg
 *.egg-info
 *.log
+.tags_swap
+tags
 build/
 dist/
 nupic/

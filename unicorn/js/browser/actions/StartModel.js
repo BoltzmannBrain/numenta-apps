@@ -31,9 +31,8 @@ import {ACTIONS} from '../lib/Constants';
 export default function (actionContext, payload) {
   let modelClient = actionContext.getModelClient();
   let {aggOpts, inputOpts, metricId, modelOpts} = payload;
+  let aggregated = (Object.keys(aggOpts).length >= 1);
 
   modelClient.createModel(metricId, inputOpts, aggOpts, modelOpts);
-  actionContext.dispatch(ACTIONS.START_MODEL, {
-    aggOpts, inputOpts, metricId, modelOpts
-  });
+  actionContext.dispatch(ACTIONS.START_MODEL, {modelId: metricId, aggregated});
 }

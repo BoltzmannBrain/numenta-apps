@@ -36,7 +36,6 @@ import ModelData from '../components/ModelData';
 import ModelStore from '../stores/ModelStore';
 import ShowCreateModelDialogAction from '../actions/ShowCreateModelDialog';
 import StartParamFinderAction from '../actions/StartParamFinder';
-import StopModelAction from '../actions/StopModel';
 
 const dialog = remote.require('dialog');
 const MOMENTS_TO_DATETIME =
@@ -123,10 +122,6 @@ export default class Model extends React.Component {
     });
   }
 
-  _onStopButtonClick(modelId) {
-    this.context.executeAction(StopModelAction, modelId);
-  }
-
   _createModel(metricName, metricId, csvPath, rowOffset, timestampIndex,
                 valueIndex, datetimeFormat) {
     let inputOpts = {
@@ -173,7 +168,6 @@ export default class Model extends React.Component {
     let modelId = model.modelId;
     let filename = path.basename(model.filename);
     let title = model.metric;
-    let isModelActive = (model && ('active' in model) && model.active);
     let hasModelRun = (model && ('ran' in model) && model.ran);
     let deleteConfirmDialog = this.state.deleteConfirmDialog || {};
     let dialogOpen = false;
@@ -214,14 +208,14 @@ export default class Model extends React.Component {
       <FlatButton
         label={this._config.get('button:cancel')}
         onTouchTap={this._dismissDeleteConfirmDialog.bind(this)}
-      />,
+        />,
       <FlatButton
         keyboardFocused={true}
         label={this._config.get('button:delete')}
         onTouchTap={deleteConfirmDialog.callback}
         primary={true}
         ref="submit"
-      />
+        />
     ];
     let actions = (
       <CardActions style={this._styles.actions}>
@@ -234,28 +228,22 @@ export default class Model extends React.Component {
                                     rowOffset, timestampIndex, valueIndex,
                                     datetimeFormat)
           }
-        />
-        <FlatButton
-          disabled={!isModelActive}
-          label={this._config.get('button:model:stop')}
-          labelPosition="after"
-          onTouchTap={this._onStopButtonClick.bind(this, modelId)}
-          primary={hasModelRun}
-        />
+          primary={!hasModelRun}
+          />
         <FlatButton
           disabled={!hasModelRun}
           label={this._config.get('button:model:delete')}
           labelPosition="after"
           onTouchTap={this._deleteModel.bind(this, modelId)}
           primary={hasModelRun}
-        />
+          />
         <FlatButton
           disabled={!hasModelRun}
           label={this._config.get('button:model:export')}
           labelPosition="after"
           onTouchTap={this._exportModelResults.bind(this, modelId)}
           primary={hasModelRun}
-        />
+          />
       </CardActions>
     );
 
@@ -275,7 +263,7 @@ export default class Model extends React.Component {
           subtitle={<div style={this._styles.title}>{filename}</div>}
           title={<div style={this._styles.title}>{title}</div>}
           titleColor={titleColor}
-        />
+          />
         <CardText expandable={false}>
           {actions}
           <ModelData modelId={modelId}/>
@@ -286,8 +274,8 @@ export default class Model extends React.Component {
           open={dialogOpen}
           ref="deleteConfirmDialog"
           title={deleteConfirmDialog.title}
-        >
-          {deleteConfirmDialog.message}
+          >
+            {deleteConfirmDialog.message}
         </Dialog>
         <CreateModelDialog ref="createModelWindow" initialOpenState={false}/>
       </Card>

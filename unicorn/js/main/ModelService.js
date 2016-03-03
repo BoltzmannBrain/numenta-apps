@@ -101,12 +101,15 @@ export class ModelService extends EventEmitter {
       throw new DuplicateIDError();
     }
 
-    const params = [
+    let params = [
       '-m', 'unicorn_backend.model_runner_2',
       '--input', JSON.stringify(inputOpt),
-      '--agg', JSON.stringify(aggregationOpt),
       '--model', JSON.stringify(modelOpt)
     ];
+    if (Object.keys(aggregationOpt).length >= 1) {
+      params = params.concat('--agg', JSON.stringify(aggregationOpt));
+    }
+
     const child = childProcess.spawn(PYTHON_EXECUTABLE, params);
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
@@ -120,7 +123,12 @@ export class ModelService extends EventEmitter {
     });
 
     child.stdout.on('data', (data) => {
-      this.emit(modelId, 'data', data);
+      // Model data chunks are separated by '\n', see 'model_runner_2' for details
+      data.split('\n').forEach((line) => {
+        if (line && line.length > 0) {
+          this.emit(modelId, 'data', line)
+        }
+      });
     });
 
     child.once('close', (code) => {
@@ -156,3 +164,5 @@ export class ModelService extends EventEmitter {
     this.removeAllListeners(modelId);
   }
 }
+const INSTANCE = new ModelService();
+export default INSTANCE;

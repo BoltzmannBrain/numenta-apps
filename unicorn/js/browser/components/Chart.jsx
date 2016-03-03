@@ -15,6 +15,7 @@
 //
 // http://numenta.org/licenses/
 
+import CircularProgress from 'material-ui/lib/circular-progress';
 import Dygraph from 'dygraphs';
 import Paper from 'material-ui/lib/paper';
 import React from 'react';
@@ -105,7 +106,7 @@ export default class Chart extends React.Component {
   }
 
   componentDidUpdate() {
-    if (this._dygraph) {
+    if (this._dygraph && this.props.data.length > 1) {
       this._chartUpdate();
     } else if (this.props.data.length) {
       this._chartInitalize();
@@ -117,18 +118,18 @@ export default class Chart extends React.Component {
    */
   _chartInitalize() {
     let {data, options} = this.props;
+    let timestampIndex = 0;
     let element = ReactDOM.findDOMNode(this.refs.chart);
-    let first = new Date(data[0][0]).getTime();
-    let second = new Date(data[1][0]).getTime();
+    let first = new Date(data[0][timestampIndex]).getTime();
+    let second = new Date(data[1][timestampIndex]).getTime();
     let unit = second - first; // each datapoint
-
-    this._chartBusy = true;
 
     // determine each value datapoint time unit and chart width based on that
     this._chartRangeWidth = Math.round(unit * this._displayPointCount);
     this._chartRange = [first, first + this._chartRangeWidth]; // float left
 
     // init chart
+    this._chartBusy = true;
     options.dateWindow = this._chartRange;
     this._dygraph = new Dygraph(element, data, options);
     this._chartBusy = false;
@@ -139,14 +140,23 @@ export default class Chart extends React.Component {
    */
   _chartUpdate() {
     let {data, options} = this.props;
-    let anomalyCount = Math.abs(this.props.metaData.length.model - 1);
-    let first = new Date(data[0][0]).getTime();
-    let blockRedraw = anomalyCount % 2 === 0; // filter out some redrawing
+    let timestampIndex = 0;
+    let model = this.props.metaData.model;
+    let modelIndex = Math.abs(this.props.metaData.length.model - 1);
+    let first = new Date(data[0][timestampIndex]).getTime();
+    let blockRedraw = modelIndex % 2 === 0; // filter out some redrawing
     let rangeMax, rangeMin;
+
+    // If new aggregated data chart: destroy, and it will re-create itself fresh
+    if (model.aggregated && modelIndex === 1) {
+      this.componentWillUnmount();
+      this.componentDidMount();
+      return;
+    }
 
     // scroll along with fresh anomaly model data input
     if (!this._chartBusy) {
-      rangeMax = new Date(data[anomalyCount][0]).getTime();
+      rangeMax = new Date(data[modelIndex][timestampIndex]).getTime();
       rangeMin = rangeMax - this._chartRangeWidth;
       if (rangeMin < first) {
         rangeMin = first;
@@ -169,7 +179,8 @@ export default class Chart extends React.Component {
   render() {
     return (
       <Paper ref="chart" style={this._styles.root} zDepth={this.props.zDepth}>
-        <br/>Loading data...
+        <CircularProgress size={0.5} />
+        {this._config.get('chart:loading')}
       </Paper>
     );
   }

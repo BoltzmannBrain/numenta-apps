@@ -36,7 +36,6 @@ export default class Logo extends React.Component {
 
     this._config = this.context.getConfigClient();
 
-    // dynamic styles
     let muiTheme = this.context.muiTheme;
     this._styles = {
       root: {

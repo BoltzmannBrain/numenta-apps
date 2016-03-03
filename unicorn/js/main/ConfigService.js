@@ -17,6 +17,7 @@
 
 import nconf from 'nconf';
 import path from 'path';
+import isElectronRenderer from 'is-electron-renderer';
 
 const CONFIG_FILE = 'default.json';
 const CONFIG_PATH = path.join('js', 'config');
@@ -37,6 +38,18 @@ const Defaults = {
 function createConfigService() {
   const config = nconf.env().argv().defaults(Defaults);
 
+  // Set first file/store to user settings
+  let location = path.join(CONFIG_PATH, 'user.settings.json');
+  if (!isElectronRenderer) {
+    try {
+      const app = require('app'); // eslint-disable-line
+      location = path.join(app.getPath('userData'), 'settings.json')
+    } catch (error) { /* no-op */ }
+  }
+  // User settings
+  config.file('user', location);
+
+  // Global environment
   config.file(path.join(CONFIG_PATH, CONFIG_FILE));
   config.file(
     'environment',

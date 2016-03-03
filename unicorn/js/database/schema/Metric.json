@@ -6,20 +6,25 @@
     "uid": {
       "type": "string",
       "maxLength": 50,
-      "minLength": 1
+      "minLength": 1,
+      "required": true
     },
     "file_uid": {
       "type": "string",
       "maxLength": 50,
-      "minLength": 1
+      "minLength": 1,
+      "required": true
     },
     "name": {
       "type": "string",
-      "maxLength": 255
+      "maxLength": 255,
+      "required": true
     },
     "type": {
       "enum": ["date", "number", "string"],
-      "type": "string"
+      "type": "string",
+      "default": "string",
+      "required": true
     },
     "format": {
       "type": "string",
@@ -35,6 +40,5 @@
       "$ref": "/py/model_opt_schema"
     }
   },
-  "additionalProperties": false,
-  "required": ["uid", "file_uid", "name", "type"]
+  "additionalProperties": false
 }

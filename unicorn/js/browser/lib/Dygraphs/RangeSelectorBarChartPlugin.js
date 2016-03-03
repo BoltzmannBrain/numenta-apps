@@ -122,8 +122,8 @@ export default class {
    */
   _drawMiniBar(context, x, height, color, stroke) {
     context.beginPath();
-    context.moveTo(x, height);
-    context.lineTo(x, 0);
+    context.moveTo(x, height - 1);
+    context.lineTo(x, 2);
     context.closePath();
     this._canvas_context.lineWidth = stroke;
     this._canvas_context.strokeStyle = new RGBColor(color).toRGB();

@@ -16,7 +16,6 @@
 // http://numenta.org/licenses/
 
 import {ACTIONS} from '../lib/Constants';
-import UnloadMetricDataAction from './UnloadMetricData';
 
 
 /**
@@ -25,10 +24,8 @@ import UnloadMetricDataAction from './UnloadMetricData';
  * @param  {string} modelId - The model to hide.
  *                            Must be in the {@link ModelStore}
  * @emits {HIDE_MODEL}
- * @returns {Promise} - Fluxible resolves with return value
  * @see http://fluxible.io/api/actions.html#api-code-actions-code-
  */
 export default function (actionContext, modelId) {
   actionContext.dispatch(ACTIONS.HIDE_MODEL, modelId);
-  return actionContext.executeAction(UnloadMetricDataAction, modelId);
 }

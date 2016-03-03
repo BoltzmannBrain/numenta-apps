@@ -18,8 +18,6 @@
 import {ACTIONS} from '../lib/Constants';
 import ListFilesAction from '../actions/ListFiles';
 import ListMetricsAction from '../actions/ListMetrics';
-import {promiseLoadSampleFilesFromDisk} from '../lib/Unicorn/FileClient';
-import {promiseSaveFilesIntoDB} from '../lib/Unicorn/DatabaseClient';
 
 /**
  * Start Application performing all data initializations when necessary
@@ -30,30 +28,14 @@ import {promiseSaveFilesIntoDB} from '../lib/Unicorn/DatabaseClient';
  * @returns {Promise} - A Promise to be resolved with return value
  */
 export default function (actionContext) {
-  let fs = actionContext.getFileClient();
-  let db = actionContext.getDatabaseClient();
   return new Promise((resolve, reject) => {
     // Allow stores to initialze
     resolve(actionContext.dispatch(ACTIONS.START_APPLICATION));
   })
   .then(() => {
-    // Load all files
     return actionContext.executeAction(ListFilesAction, {});
   })
   .then((files) => {
-    if (files.length > 0) {
-      return files;
-    }
-    // On first run, load sample files
-    return promiseLoadSampleFilesFromDisk(fs)
-      .then((files) => promiseSaveFilesIntoDB(db, files))
-      .then((files) => {
-        // Update store with sample files
-        actionContext.dispatch(ACTIONS.LIST_FILES, files);
-        return files;
-      });
-  })
-  .then((files) => {
-    return actionContext.executeAction(ListMetricsAction, files);
+    return actionContext.executeAction(ListMetricsAction, {});
   });
 }

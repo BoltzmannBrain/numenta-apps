@@ -15,46 +15,49 @@
 //
 // http://numenta.org/licenses/
 
+import DBFileSchema from './File.json';
+import DBMetricDataSchema from './MetricData.json';
+import DBMetricSchema from './Metric.json';
+import DBModelDataSchema from './ModelData.json';
+import DBModelSchema from './Model.json';
+
+import MRAggregationSchema from '../../../py/unicorn_backend/agg_opt_schema.json';
+import MRInputSchema from '../../../py/unicorn_backend/input_opt_schema.json';
+import MRModelSchema from '../../../py/unicorn_backend/model_opt_schema.json';
+
+import PFInputSchema from '../../../py/unicorn_backend/input_opt_schema_param_finder.json';
+import PFOutputSchema from '../../../py/unicorn_backend/param_finder_output_schema.json';
+
+
 /**
  * Module containing all JSON schemas used by Unicorn.
  *
  * - Database Schemas
  * 	- DBFileSchema: Represents `File` in the database
+ * 	- DBMetricDataSchema: Represents 'MetricData' in the database
  * 	- DBMetricSchema: Represents `Metric` in the database
  * 	- DBModelDataSchema: Represents 'ModelData' in the database
- * 	- DBMetricDataSchema: Represents 'MetricData' in the database
+ * 	- DBModelSchema: Represents 'Model' in the database
  *
  * - Model Runner Schemas
  * 	- MRAggOptSchema: `--agg` command-line option object passed to ModelRunner; describes the aggregation
- * 	- MRModelOptSchema: `--model` command-line option object passed to ModelRunner
  * 	- MRInputOptSchema: `--input` command-line option object passed to ModelRunner
+ * 	- MRModelOptSchema: `--model` command-line option object passed to ModelRunner
  *
  * - Param Finder Schemas:
  * 	- PFInputSchema: param_finder input argument option
  * 	- PFOutputSchema: param_finder output results
  */
-
-import DBMetricDataSchema from '../database/schema/MetricData.json';
-import DBModelDataSchema from '../database/schema/ModelData.json';
-import DBMetricSchema from '../database/schema/Metric.json';
-import DBFileSchema from '../database/schema/File.json';
-
-import MRAggregationSchema from '../../py/unicorn_backend/agg_opt_schema.json';
-import MRModelSchema from '../../py/unicorn_backend/model_opt_schema.json';
-import MRInputSchema from '../../py/unicorn_backend/input_opt_schema.json';
-
-import PFInputSchema from '../../py/unicorn_backend/input_opt_schema_param_finder.json';
-import PFOutputSchema from '../../py/unicorn_backend/param_finder_output_schema.json';
-
 export {
   DBFileSchema,
-  DBMetricSchema,
   DBMetricDataSchema,
+  DBMetricSchema,
   DBModelDataSchema,
+  DBModelSchema,
 
   MRAggregationSchema,
-  MRModelSchema,
   MRInputSchema,
+  MRModelSchema,
 
   PFInputSchema,
   PFOutputSchema

@@ -16,18 +16,23 @@
 // http://numenta.org/licenses/
 
 import {ACTIONS} from '../lib/Constants';
+import LoadModelDataAction from './LoadModelData';
 import LoadMetricDataAction from './LoadMetricData';
 
 
 /**
- * Show model
+ * Show model making sure its data is loaded
  * @param  {FluxibleContext} actionContext - The action context
  * @param  {string} modelId - The model to show.
  *                            Must be in the {@link ModelStore}
  * @emits {SHOW_MODEL}
+ * @emits {LoadMetricDataAction}
  * @returns {Promise} - A Promise to be resolved with return value
  */
 export default function (actionContext, modelId) {
   actionContext.dispatch(ACTIONS.SHOW_MODEL, modelId);
-  return actionContext.executeAction(LoadMetricDataAction, modelId);
+  return Promise.all([
+    actionContext.executeAction(LoadModelDataAction, modelId),
+    actionContext.executeAction(LoadMetricDataAction, modelId)
+  ]);
 }

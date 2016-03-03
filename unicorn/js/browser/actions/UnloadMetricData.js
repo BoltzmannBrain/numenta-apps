@@ -19,9 +19,9 @@
 import {ACTIONS} from '../lib/Constants';
 
 /**
- * [description]
- * @param  {[type]} actionContext [description]
- * @param  {[type]} metricId      [description]
+ * FLUXible Action Handler to unload Metric data
+ * @param {Object} actionContext - FLUXible Dispatcher Action context object
+ * @param {String} metricId - Metric hash guid to operate on
  * @emits {UNLOAD_METRIC_DATA}
  */
 export default function (actionContext, metricId) {

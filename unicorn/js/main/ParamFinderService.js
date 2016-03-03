@@ -145,3 +145,6 @@ export class ParamFinderService extends EventEmitter {
   }
 
 }
+
+const INSTANCE = new ParamFinderService()
+export default INSTANCE;

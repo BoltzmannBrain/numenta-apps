@@ -1,4 +1,4 @@
 {
-  "plugins": ["add-module-exports", "transform-decorators-legacy"],
+  "plugins": ["add-module-exports", "transform-decorators-legacy", "array-includes"],
   "presets": ["es2015-node5", "stage-0", "react"]
 }

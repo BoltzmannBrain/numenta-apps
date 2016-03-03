@@ -111,4 +111,22 @@ export default class Utils {
     return result;
   }
 
+  /**
+   * Convert callback style function into {@link Promise}.
+   * When calling methods make sure to bind the method to the instance.
+   * @param  {Function} fn  callback style function
+   * @param  {Array} args   function arguments
+   * @return {Promise} Promise wrapping the callback base function
+   */
+  static promisify(fn, ...args) {
+    return new Promise((resolve, reject) => {
+      fn(...args, (error, data) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(data);
+        }
+      })
+    });
+  }
 }

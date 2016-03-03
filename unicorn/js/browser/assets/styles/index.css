@@ -38,7 +38,7 @@ body {
 }
 
 .dygraph-rangeselbarchart-canvas {
-  opacity: 0.66;
+  opacity: 0.8;
   z-index: 20 !important;
 }
 

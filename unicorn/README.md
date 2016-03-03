@@ -51,7 +51,7 @@ goal to demo to the user.
 │   │   └── stores/         # FLUX Fluxible Stores JS
 │   ├── config/             # JS Config files, both auto-init with nconf, more.
 │   ├── database/           # File-based database storage (levelup + leveldown)
-│   │   └── schema/         # Database definition schemas in JSON
+│   │   └── schema/         # Database definition schemas in JSONSchema Draft-3
 │   ├── docs/               # Output dir for generated JS docs (not in git)
 │   └── main/               # JS for Electron's "Main Process", App init startup
 │       ├── index.js        # ES6 Electron App main entry, init GUI, run models
@@ -61,9 +61,9 @@ goal to demo to the user.
 ├── py/                     # Unicorn ModelRunner and support Python/C++ code
 │   └── README.md           # Python Backend instructions
 ├── samples/                # Sample .CSV data files to pre-load for user in GUI
-│   └── unsupported/        # Internal .CSV files to test against
 ├── scripts/                # Building and cross-platform Portability scripts
 ├── tests/                  # All tests, javascript, python, unit, integration
+│   ├── data/               # Data tests, bad formats, etc.
 │   ├── js/                 # JS tests, config,  unit and integration
 │   └── py/                 # Python tests, config, unit and integration
 └── webpack.config.babel.js # JS build tooling config
@@ -106,6 +106,8 @@ on streams of data, predicting future values, and detecting pattern anomalies.
     * Some [ECMAScript 5.1](https://es5.github.io/), the Web compile target.
   * [HTML5](https://developer.mozilla.org/en-US/docs/Web/Guide/HTML/HTML5)
   * [CSS3](https://developer.mozilla.org/en-US/docs/Web/CSS)
+  * [JSONSchema](https://github.com/tdegrunt/jsonschema), Database definition
+    schemas in `JSONSchema Draft-3`.
 * Framework: [Electron](https://github.com/atom/electron)
   * Engines: [Chromium](https://www.chromium.org/Home),
       [Node.js](https://github.com/joyent/node)

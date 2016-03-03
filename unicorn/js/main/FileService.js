@@ -1,22 +1,19 @@
-/* -----------------------------------------------------------------------------
- * Copyright © 2015, Numenta, Inc. Unless you have purchased from
- * Numenta, Inc. a separate commercial license for this software code, the
- * following terms and conditions apply:
- *
- * This program is free software: you can redistribute it and/or modify it
- * under the terms of the GNU Affero Public License version 3 as published by
- * the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero Public License for
- * more details.
- *
- * You should have received a copy of the GNU Affero Public License along with
- * this program. If not, see http://www.gnu.org/licenses.
- *
- * http://numenta.org/licenses/
- * -------------------------------------------------------------------------- */
+// Copyright © 2016, Numenta, Inc. Unless you have purchased from
+// Numenta, Inc. a separate commercial license for this software code, the
+// following terms and conditions apply:
+//
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero Public License version 3 as published by the
+// Free Software Foundation.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE. See the GNU Affero Public License for more details.
+//
+// You should have received a copy of the GNU Affero Public License along with
+// this program. If not, see http://www.gnu.org/licenses.
+//
+// http://numenta.org/licenses/
 
 
 /* eslint-disable no-var, object-shorthand, prefer-arrow-callback */
@@ -24,14 +21,35 @@
 import convertNewline from 'convert-newline';
 import csv from 'csv-streamify';
 import filesystem from 'fs';
+import instantiator from 'json-schema-instantiator';
 import moment from 'moment';
 import path from 'path';
+import {Validator} from 'jsonschema';
 
+import config from './ConfigService';
+import {
+  DBFileSchema, DBMetricSchema,
+  MRAggregationSchema, MRInputSchema, MRModelSchema,
+  PFInputSchema, PFOutputSchema
+} from '../database/schema';
 import TimeAggregator from './TimeAggregator';
-import Utils from './Utils';
 import {TIMESTAMP_FORMATS} from '../config/timestamp';
+import Utils from './Utils';
 
-const SAMPLES_FILE_PATH = path.join(__dirname, '..', 'samples');
+const INSTANCES = {
+  FILE: instantiator.instantiate(DBFileSchema),
+  METRIC: instantiator.instantiate(DBMetricSchema)
+};
+const SAMPLES_FILE_PATH = path.join(__dirname, config.get('samples:path'));
+const SCHEMAS = [
+  DBFileSchema, DBMetricSchema,
+  MRAggregationSchema, MRInputSchema, MRModelSchema,
+  PFInputSchema, PFOutputSchema
+];
+const VALIDATOR = new Validator();
+SCHEMAS.forEach((schema) => {
+  VALIDATOR.addSchema(schema);
+});
 
 
 /**
@@ -57,24 +75,28 @@ export class FileService {
    */
   getSampleFiles(callback) {
     filesystem.readdir(SAMPLES_FILE_PATH, function (error, data) {
-      var files;
+      let files;
       if (error) {
         callback(error, null);
         return;
       }
       files = data.map((item) => {
-        var filename = path.resolve(SAMPLES_FILE_PATH, item);
-        return {
+        let filename = path.resolve(SAMPLES_FILE_PATH, item);
+        let record = Object.assign({}, INSTANCES.FILE, {
           uid: Utils.generateFileId(filename),
           description: '',
           timestampFormat: 'MM-DD-YY HH:mm',
           name: path.basename(item),
           filename: filename,
           type: 'sample'
-        };
+        });
+        let validation = VALIDATOR.validate(record, DBFileSchema);
+        if (validation.errors.length) {
+          return callback(validation.errors, null);
+        }
+        return record;
       });
-
-      callback(null, files);
+      return callback(null, files);
     });
   }
 
@@ -88,8 +110,8 @@ export class FileService {
    *  <code> { name:'fieldName', type:'number', date:'string' } </code>
    */
   getFields(filename, options, callback) {
-    var fields = [];
-    var fieldName, newliner, stream;
+    let fields = [];
+    let fieldName, newliner, stream, validation;
 
     // "options" is optional
     if (typeof callback == 'undefined' && typeof options == 'function') {
@@ -113,29 +135,31 @@ export class FileService {
         if (data) {
           for (fieldName in data) {
             const val = data[fieldName];
-            const field = {
+            let field = Object.assign({}, INSTANCES.METRIC, {
               uid: Utils.generateMetricId(filename, fieldName),
               file_uid: Utils.generateFileId(filename),
-              name: fieldName,
-              type: 'string'
-            };
+              name: fieldName
+            });
             if (Number.isFinite(Number(val))) {
               field.type = 'number';
             } else if (Number.isFinite(Date.parse(val))) {
               field.type = 'date';
               // Guess timestamp format
-              field['format'] = TIMESTAMP_FORMATS.find((format) => {
+              field.format = TIMESTAMP_FORMATS.find((format) => {
                 return moment(val, format, true).isValid();
               });
+            }
+            validation = VALIDATOR.validate(field, DBMetricSchema);
+            if (validation.errors.length) {
+              return callback(validation.errors, null);
             }
             fields.push(field);
           }
           stream.unpipe();
           stream.destroy();
-          callback(null, fields);
-          return;
-        }
-      })
+          return callback(null, fields);
+        } // if data
+      }) // on data
       .once('error', callback)
       .once('end', callback);
   }
@@ -338,6 +362,7 @@ export class FileService {
   }
 }
 
+
 // Returns singleton
-const INSTANCE = new FileService();
-export default INSTANCE;
+const SERVICE = new FileService();
+export default SERVICE;

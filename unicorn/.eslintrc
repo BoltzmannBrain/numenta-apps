@@ -166,7 +166,7 @@ rules:
   padded-blocks: [1, "never"]
   prefer-arrow-callback: 1
   prefer-const: 0
-  prefer-reflect: 1
+  prefer-reflect: 0
   prefer-spread: 2
   prefer-template: 2
   quotes: [2, "single", "avoid-escape"]

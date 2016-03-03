@@ -6,13 +6,22 @@
     "uid": {
       "type": "string",
       "maxLength": 50,
-      "minLength": 1
+      "minLength": 1,
+      "required": true
     },
     "name": {
-      "type": "string"
+      "type": "string",
+      "required": true
     },
     "filename": {
-      "type": "string"
+      "type": "string",
+      "required": true
+    },
+    "type": {
+      "description": "Sample file from filesystem, or Uploaded file from user?",
+      "enum": [ "sample", "uploaded" ],
+      "type": "string",
+      "required": true
     },
     "description": {
       "type": "string",
@@ -26,13 +35,7 @@
       "type": "string",
       "default": "MM-DD-YY HH:mm",
       "description": "Timestamp format. Default ISO 8601"
-    },
-    "type": {
-      "description": "Sample file from filesystem, or Uploaded file from user?",
-      "enum": [ "sample", "uploaded" ],
-      "type": "string"
     }
   },
-  "additionalProperties": false,
-  "required": ["uid", "name", "filename", "type"]
+  "additionalProperties": false
 }

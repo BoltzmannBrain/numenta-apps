@@ -18,7 +18,6 @@
 
 import {ipcMain as ipc} from 'electron';
 
-import {ParamFinderService} from './ParamFinderService';
 import UserError from './UserError';
 
 export const PARAM_FINDER_IPC_CHANNEL = 'PARAM_FINDER_IPC_CHANNEL';
@@ -29,10 +28,10 @@ export const PARAM_FINDER_IPC_CHANNEL = 'PARAM_FINDER_IPC_CHANNEL';
  */
 export default class ParamFinderServiceIPC {
 
-  constructor() {
+  constructor(paramFinderService) {
     this._webContents = null;
     this._attached = new Set();
-    this._service = new ParamFinderService();
+    this._service = paramFinderService;
   }
 
   /**

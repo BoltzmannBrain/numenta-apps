@@ -17,7 +17,6 @@
 
 import {ipcMain as ipc} from 'electron';
 
-import {ModelService} from './ModelService';
 import UserError from './UserError';
 
 export const MODEL_SERVER_IPC_CHANNEL = 'MODEL_SERVER_IPC_CHANNEL';
@@ -28,10 +27,10 @@ export const MODEL_SERVER_IPC_CHANNEL = 'MODEL_SERVER_IPC_CHANNEL';
  */
 export default class ModelServiceIPC {
 
-  constructor() {
+  constructor(modelService) {
     this._webContents = null;
     this._attached = new Set();
-    this._service = new ModelService();
+    this._service = modelService;
   }
 
   /**
@@ -89,12 +88,9 @@ export default class ModelServiceIPC {
     } catch (error) {
       if (this._webContents) {
         // Forward error to browser
-        this._webContents.send(
-          MODEL_SERVER_IPC_CHANNEL,
-          modelId,
-          'error',
-          {error, ipcevent: payload}
-        );
+        this._webContents.send(MODEL_SERVER_IPC_CHANNEL, modelId, 'error', {
+          error, ipcevent: payload
+        });
       }
     }
   }
@@ -115,12 +111,9 @@ export default class ModelServiceIPC {
       // forward event to BrowserWindow
       if (this._webContents) {
         if (command === 'error') {
-          this._webContents.send(
-            MODEL_SERVER_IPC_CHANNEL,
-            modelId,
-            'error',
-            {error: new UserError(payload)}
-          );
+          this._webContents.send(MODEL_SERVER_IPC_CHANNEL, modelId, 'error', {
+            error: new UserError(payload)
+          });
         } else {
           this._webContents.send(
             MODEL_SERVER_IPC_CHANNEL, modelId, command, payload
@@ -171,5 +164,4 @@ export default class ModelServiceIPC {
     this._detach(modelId);
     this._service.removeModel(modelId);
   }
-
 }

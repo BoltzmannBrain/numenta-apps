@@ -1,4 +1,4 @@
-// Copyright © 2015, Numenta, Inc. Unless you have purchased from
+// Copyright © 2016, Numenta, Inc. Unless you have purchased from
 // Numenta, Inc. a separate commercial license for this software code, the
 // following terms and conditions apply:
 //
@@ -16,31 +16,19 @@
 // http://numenta.org/licenses/
 
 import BaseStore from 'fluxible/addons/BaseStore';
+import instantiator from 'json-schema-instantiator';
+import {Validator} from 'jsonschema';
+
+import {DBModelSchema} from '../../database/schema';
+
+const INSTANCE = instantiator.instantiate(DBModelSchema);
+const VALIDATOR = new Validator();
+VALIDATOR.addSchema(DBModelSchema);
 
 
 /**
- * @typedef {Object} ModelStore.Model
- * @property {string} modelId - Model Unique ID.
- * @property {string} filename - File full path name
- * @property {string} timestampField - Timestamp field name
- * @property {string} metric - Metric field name
- * @property {boolean} active - Whether or not this model is running
- * @property {boolean} ran - Whether not this metric model has run once
- * @property {boolean} visible - Whether or not this model is visible
- * @property {?string} error - Last known error or null for no error
+ * Fluxible Store for Model Data
  */
-const DEFAULT_VALUES = {
-  modelId: null,
-  filename: null,
-  timestampField: null,
-  metric: null,
-  active: false,
-  ran: false,
-  visible: false,
-  error: null
-};
-
-
 export default class ModelStore extends BaseStore {
 
   /**
@@ -82,6 +70,7 @@ export default class ModelStore extends BaseStore {
 
   constructor(dispatcher) {
     super(dispatcher);
+
     this._models = new Map();
   }
 
@@ -91,15 +80,23 @@ export default class ModelStore extends BaseStore {
    *                                                      the store
    */
   _addModels(models) {
+    let records = [];
+
     if (Array.isArray(models)) {
-      models.forEach((model) => {
-        this._models.set(model.modelId,
-          Object.assign({}, DEFAULT_VALUES, model));
-      });
+      records = models;
     } else if ('modelId' in models) {
-      this._models.set(models.modelId,
-        Object.assign({}, DEFAULT_VALUES, models));
+      records.push(models);
     }
+
+    records.forEach((model) => {
+      let record = Object.assign({}, INSTANCE, model);
+      let validation = VALIDATOR.validate(record, DBModelSchema);
+      if (validation.errors.length) {
+        throw new Error('New Model did not validate against schema');
+      }
+      this._models.set(model.modelId, record);
+    });
+
     this.emitChange();
   }
 
@@ -138,14 +135,19 @@ export default class ModelStore extends BaseStore {
 
   /**
    * Mark the model as active.
-   * @param {string} modelId - The model to update
+   * @param {Object} payload - Model info to start with
+   * @param {String} payload.modelId - The model to update
+   * @param {Boolean} [payload.aggregated=false] - Model flag for if data
+   *  is aggregated
    */
-  _startModel(modelId) {
+  _startModel(payload) {
+    let {modelId, aggregated} = payload;
     let model = this._models.get(modelId);
     if (model) {
       model.active = true;
-      model.ran = true;
+      model.aggregated = aggregated;
       model.error = null;
+      model.ran = true;
       this.emitChange();
     }
   }

@@ -17,7 +17,6 @@
 
 
 import {ACTIONS} from '../lib/Constants';
-import Utils from '../../main/Utils';
 
 
 /**
@@ -33,14 +32,13 @@ export default function (actionContext, filename) {
   return new Promise((resolve, reject) => {
     let database = actionContext.getDatabaseClient();
     // Delete file and its data
-    let fileId = Utils.generateFileId(filename);
-    database.deleteFile(fileId, (error) => {
+    database.deleteFile(filename, (error) => {
       if (error) {
         actionContext.dispatch(ACTIONS.DELETE_FILE_FAILED, {filename, error});
         reject(error);
       } else {
         actionContext.dispatch(ACTIONS.DELETE_FILE, filename);
-        resolve(fileId);
+        resolve(filename);
       }
     });
   });

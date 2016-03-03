@@ -16,38 +16,26 @@
 // http://numenta.org/licenses/
 
 import {ACTIONS} from '../lib/Constants';
-import {promiseMetricsFromFiles} from '../lib/Unicorn/FileClient';
-import {
-  promiseMetricsFromDB,
-  promiseSaveMetricsToDB
-} from '../lib/Unicorn/DatabaseClient';
 
 /**
- * List all available metrics of the given file
+ * List all available metrics
  * @param  {FluxibleContext} actionContext - The action context
- * @param  {Array<string>} files - Array of file names to get metrics
  * @emits {LIST_METRICS}
  * @emits {LIST_METRICS_FAILURE}
  * @returns {Promise} - A Promise to be resolved with return value
  */
-export default function (actionContext, files) {
-  let db = actionContext.getDatabaseClient();
-  let fs = actionContext.getFileClient();
-
+export default function (actionContext) {
   return new Promise((resolve, reject) => {
-    return promiseMetricsFromDB(db)
-      .then((metrics) => {
-        if (metrics.length > 0) {
-          return metrics;
-        }
-        return promiseMetricsFromFiles(fs, files)
-          .then((metrics) => {
-            return promiseSaveMetricsToDB(db, metrics);
-          }, reject);
-      }, reject)
-      .then((metrics) => {
+    let db = actionContext.getDatabaseClient();
+    db.getAllMetrics((error, metrics) => {
+      if (error) {
+        actionContext.dispatch(ACTIONS.LIST_METRICS_FAILURE, error);
+        reject(error);
+      } else {
+        metrics = JSON.parse(metrics);
         actionContext.dispatch(ACTIONS.LIST_METRICS, metrics);
         resolve(metrics);
-      }, reject);
-  })
+      }
+    });
+  });
 }
