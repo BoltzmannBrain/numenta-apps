@@ -19,9 +19,9 @@
 
 const assert = require('assert');
 import {createMockActionContext} from 'fluxible/utils';
-import FileStore from '../../../../js/browser/stores/FileStore';
-import DeleteFileAction from '../../../../js/browser/actions/DeleteFile';
-import {ACTIONS} from '../../../../js/browser/lib/Constants';
+import FileStore from '../../../../app/browser/stores/FileStore';
+import DeleteFileAction from '../../../../app/browser/actions/DeleteFile';
+import {ACTIONS} from '../../../../app/browser/lib/Constants';
 
 const EXPECTED_ERROR = {
   type:'NotFoundError'

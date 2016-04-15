@@ -1,0 +1,7 @@
+instrumentation:
+  root: app
+  excludes:
+    - ./dist
+  extensions:
+    - .jsx
+    - .js

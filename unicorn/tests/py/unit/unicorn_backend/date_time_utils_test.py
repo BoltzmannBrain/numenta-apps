@@ -380,7 +380,7 @@ class DateTimeUtilsTestCase(unittest.TestCase):
 
 
     # Make sure all timestamp formats from
-    # unicorn/js/config/momentjs_to_datetime_strptime.json are covered by our
+    # unicorn/app/config/momentjs_to_datetime_strptime.json are covered by our
     # test cases
 
     mappingsPath = os.path.join(

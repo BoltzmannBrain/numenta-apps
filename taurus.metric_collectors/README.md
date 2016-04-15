@@ -155,3 +155,17 @@ Renaming a stock (symbol)
 - Push changes to Taurus Metric Collector server.
 - Restart Taurus Metric Collector services. metric_maintenance_agent.py service does the rest.
   For more info, see taurus.metric_collectors/taurus/metric_collectors/common_services/metric_maintenance_agent.py.
+
+Taurus Metric Collectors and Docker
+-----------------------------------
+
+A [Dockerfile](https://docs.docker.com/engine/reference/builder/) is included
+to support a docker-based workflow.  To build a docker image, run the following
+command from the root of the `numenta-apps` repository (the parent directory
+of `taurus.metric_collectors/`):
+
+```
+docker build -t taurus-collector:latest -f taurus.metric_collectors/Dockerfile .
+```
+
+See `Dockerfile` for specific environment variable configuration directives.

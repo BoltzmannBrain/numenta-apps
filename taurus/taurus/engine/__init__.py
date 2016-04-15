@@ -8,8 +8,7 @@ import htmengine
 
 
 
-# TODO: TAUR-1209 use __name__ or "taurus.engine"
-distribution = get_distribution("taurus")
+distribution = get_distribution(__name__)
 
 # See setup.py for constant
 __version__ = distribution.version  # pylint: disable=E1101

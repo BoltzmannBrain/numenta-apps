@@ -1,0 +1,134 @@
+// Copyright © 2016, Numenta, Inc.  Unless you have purchased from
+// Numenta, Inc. a separate commercial license for this software code, the
+// following terms and conditions apply:
+//
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the GNU Affero Public License version 3 as published by the Free
+// Software Foundation.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+// FOR A PARTICULAR PURPOSE. See the GNU Affero Public License for more details.
+//
+// You should have received a copy of the GNU Affero Public License along with
+// this program.  If not, see http://www.gnu.org/licenses.
+//
+// http://numenta.org/licenses/
+
+const assert = require('assert');
+const options = require('./webdriver.options');
+const webdriverio = require('webdriverio');
+
+const client = webdriverio.remote(options);
+
+const SELECTOR = { /* eslint-disable */
+  CHART: '#main > main > section > div > div > div > div:nth-child(2) > div.dygraph-chart',
+  CHECKBOX: '#main > main > div > nav > div:nth-child(2) > div:nth-child(2) > div > div > label > div:nth-child(1)',
+  CREATE: '#main > main > section > div > div > div > div:nth-child(2) > div:nth-child(1) > button:nth-child(1)',
+  DEFAULT: '#main > main > section > div > div > span'
+}; /* eslint-enable */
+
+
+describe('Chart Sample Show', () => {
+  before((done) => {
+    client.init()
+      .waitForVisible(SELECTOR.CHECKBOX)
+      .call(done);
+  })
+
+  it('should be showing the Default App Background', (done) => {
+    client.isVisible(SELECTOR.DEFAULT)
+      .then((response) => {
+        assert.equal(response, true);
+      })
+      .call(done);
+  });
+
+  it('should NOT be showing a Sample Chart', (done) => {
+    client.isVisible(SELECTOR.CHART)
+      .then((response) => {
+        assert.equal(response, false);
+      })
+      .call(done);
+  });
+
+  it('should NOT be showing a Sample Chart with Create button', (done) => {
+    client.isVisible(SELECTOR.CREATE)
+      .then((response) => {
+        assert.equal(response, false);
+      })
+      .call(done);
+  });
+
+  it('should have a Sample file checkbox', (done) => {
+    client.isVisible(SELECTOR.CHECKBOX)
+      .then((response) => {
+        assert.equal(response, true);
+      })
+      .call(done);
+  });
+
+  it('should click checkbox to SHOW Sample Chart', (done) => {
+    client.click(SELECTOR.CHECKBOX)
+      .waitForVisible(SELECTOR.CHART)
+      .isVisible(SELECTOR.CHART)
+      .then((response) => {
+        assert.equal(response, true);
+      })
+      .call(done);
+  });
+
+  it('should be showing a Sample Chart with Create button', (done) => {
+    client.isVisible(SELECTOR.CREATE)
+      .then((response) => {
+        assert.equal(response, true);
+      })
+      .call(done);
+  });
+
+  it('should NOT be showing the Default App Background anymore', (done) => {
+    client.isVisible(SELECTOR.DEFAULT)
+      .then((response) => {
+        assert.equal(response, false);
+      })
+      .call(done);
+  });
+
+  it('should click checkbox to HIDE Sample Chart', (done) => {
+    client.click(SELECTOR.CHECKBOX)
+      .waitForVisible(SELECTOR.DEFAULT)
+      .isVisible(SELECTOR.CHART)
+      .then((response) => {
+        assert.equal(response, false);
+      })
+      .call(done);
+  });
+
+  it('should be showing the Default App Background again', (done) => {
+    client.isVisible(SELECTOR.DEFAULT)
+      .then((response) => {
+        assert.equal(response, true);
+      })
+      .call(done);
+  });
+
+  it('should NOT be showing a Sample Chart again', (done) => {
+    client.isVisible(SELECTOR.CHART)
+      .then((response) => {
+        assert.equal(response, false);
+      })
+      .call(done);
+  });
+
+  it('should NOT be showing a Sample Chart with Create button again', (done) => { // eslint-disable-line
+    client.isVisible(SELECTOR.CREATE)
+      .then((response) => {
+        assert.equal(response, false);
+      })
+      .call(done);
+  });
+
+  after((done) => {
+    client.end().then(() => done());
+  });
+});

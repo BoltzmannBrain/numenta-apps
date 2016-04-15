@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "id": "/py/model_opt_schema",
+  "description": "--model command-line option object passed to model runner",
+  "type": "object",
+  "additionalProperties": false,
+
+  "properties": {
+    "modelId": {
+      "description": "The model id; ModelRunner uses the model id for logging",
+      "type": "string",
+      "required": false
+    },
+    "modelConfig": {
+      "description": "OPF Model Configuration parameters (JSON object) for passing to the OPF `ModelFactory.create()` method as the `modelConfig` parameter.",
+      "type": "object",
+      "required": true
+    },
+    "inferenceArgs": {
+      "description": "OPF Model Inference parameters (JSON object) for passing to the resulting model's `enableInference()` method as the `inferenceArgs` parameter.",
+      "type": "object",
+      "required": true
+    },
+    "timestampFieldName": {
+      "description": "The name of the field in modelParams corresponding to the metric timestamp; for example, this is c0 in the model params returned by nupic.frameworks.opf.common_models.cluster_params.getScalarMetricWithTimeOfDayAnomalyParams().",
+      "type": "string",
+      "required": true
+    },
+    "valueFieldName": {
+      "description": "The name of the field in modelParams corresponding to the metric value; for example, this is c1 in the model params returned by nupic.frameworks.opf.common_models.cluster_params.getScalarMetricWithTimeOfDayAnomalyParams().",
+      "type": "string",
+      "required": true
+    }
+  }
+}

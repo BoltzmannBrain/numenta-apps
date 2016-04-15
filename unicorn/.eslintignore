@@ -1,2 +1,3 @@
-js/browser/assets/bundle/
-js/docs/
+app/browser/assets/bundle/
+app/node_modules/
+docs/

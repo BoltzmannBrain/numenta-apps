@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "id": "/db/Metric",
+  "type": "object",
+  "properties": {
+    "uid": {
+      "type": "string",
+      "maxLength": 50,
+      "minLength": 1,
+      "required": true
+    },
+    "file_uid": {
+      "type": "string",
+      "maxLength": 50,
+      "minLength": 1,
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 255,
+      "required": true
+    },
+    "type": {
+      "enum": ["date", "number", "string"],
+      "type": "string",
+      "default": "string",
+      "required": true
+    },
+    "format": {
+      "type": "string",
+      "description": "Optional field format string. Usually used by 'date' fields to validate datetime format"
+    },
+    "index": {
+      "type:": "integer",
+      "description": "Zero based Column index"
+    },
+    "viewpoint": {
+      "type": ["integer", "null"],
+      "default": null,
+      "description": "Chart viewport starting point. Tracked as a JS Date, miliseconds since epoch (1 January 1970 00:00:00 UTC), example = 1458342717816. JS Null if unused."
+    },
+    "input_options": {
+      "$ref": "/py/input_opt_schema_param_finder"
+    },
+    "aggregation_options": {
+      "$ref": "/py/agg_opt_schema"
+    },
+    "model_options": {
+      "$ref": "/py/model_opt_schema"
+    }
+  },
+  "additionalProperties": false
+}

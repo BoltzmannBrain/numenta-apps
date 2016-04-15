@@ -16,7 +16,13 @@
 // http://numenta.org/licenses/
 
 /* eslint-disable max-nested-callbacks */
-import Utils from '../../../js/main/Utils';
+import {
+  generateId, generateFileId, generateMetricId, generateMetricDataId
+} from '../../../app/main/generateId';
+
+import {
+  trims, promisify, anomalyScale
+} from '../../../app/common/common-utils';
 
 const assert = require('assert');
 const FILENAME = 'file.csv';
@@ -29,60 +35,73 @@ const EXPECTED_METRICDATA_ID = 'abdde62d74437857!f32b67c7e26342af!1451635200000'
 
 
 describe('Utils', () => {
-  it('Utils#generateId', (done) => {
-    let actual = Utils.generateId(FILENAME);
-    assert.equal(actual, EXPECTED_ID)
-    done();
+  describe('generateId', () => {
+    it('#generateId', (done) => {
+      let actual = generateId(FILENAME);
+      assert.equal(actual, EXPECTED_ID)
+      done();
+    });
+    it('#generateFileId', (done) => {
+      let actual = generateFileId(FILENAME);
+      assert.equal(actual, EXPECTED_FILE_ID)
+      done();
+    });
+    it('#generateMetricId', (done) => {
+      let actual = generateMetricId(FILENAME, METRIC);
+      assert.equal(actual, EXPECTED_METRIC_ID)
+      done();
+    });
+    it('#generateMetricDataId', (done) => {
+      let actual = generateMetricDataId(EXPECTED_METRIC_ID, TIMESTAMP);
+      assert.equal(actual, EXPECTED_METRICDATA_ID)
+      done();
+    });
   });
-  it('Utils#generateFileId', (done) => {
-    let actual = Utils.generateFileId(FILENAME);
-    assert.equal(actual, EXPECTED_FILE_ID)
-    done();
-  });
-  it('Utils#generateMetricId', (done) => {
-    let actual = Utils.generateMetricId(FILENAME, METRIC);
-    assert.equal(actual, EXPECTED_METRIC_ID)
-    done();
-  });
-  it('Utils#generateMetricDataId', (done) => {
-    let actual = Utils.generateMetricDataId(EXPECTED_METRIC_ID, TIMESTAMP);
-    assert.equal(actual, EXPECTED_METRICDATA_ID)
-    done();
-  });
-  it('Utils#trims', (done) => {
-    let multiline = `1
+  describe('common-utils', () => {
+    it('#trims', (done) => {
+      let multiline = `1
 2
 3
 4
 5
 6
 7`;
-    let actual = Utils.trims(multiline);
-    assert.equal(actual, '1 2 3 4 5 6 7');
-    done();
-  });
-  describe('Utils#promisify', () => {
-    it('should resolve', (done) => {
-      function callbackFunction(params, callback) {
-        callback(null, params);
-      }
-      Utils.promisify(callbackFunction, FILENAME)
-        .then((actual) => {
-          assert.equal(actual, FILENAME);
-          done();
-        })
-        .catch(() => assert.fail('it should not reject'));
+      let actual = trims(multiline);
+      assert.equal(actual, '1 2 3 4 5 6 7');
+      done();
     });
-    it('should reject', (done) => {
-      function callbackFunction(params, callback) {
-        callback('error');
-      }
-      Utils.promisify(callbackFunction, FILENAME)
-        .then(() => assert.fail('it should not resolve'))
-        .catch((error) => {
-          assert.equal(error, 'error');
-          done();
-        });
+    describe('#promisify', () => {
+      it('should resolve', (done) => {
+        function callbackFunction(params, callback) {
+          callback(null, params);
+        }
+        promisify(callbackFunction, FILENAME)
+          .then((actual) => {
+            assert.equal(actual, FILENAME);
+            done();
+          })
+          .catch(() => assert.fail('it should not reject'));
+      });
+      it('should reject', (done) => {
+        function callbackFunction(params, callback) {
+          callback('error');
+        }
+        promisify(callbackFunction, FILENAME)
+          .then(() => assert.fail('it should not resolve'))
+          .catch((error) => {
+            assert.equal(error, 'error');
+            done();
+          });
+      });
+    });
+    it('#anomalyScale', (done) => {
+      assert.equal(0.1, anomalyScale(0));
+      assert.equal(0.1, anomalyScale(0.3999999));
+      assert.equal(0.2, anomalyScale(0.4));
+      assert.equal(0.2, anomalyScale(0.5125976562500001));
+      assert.equal(0.3, anomalyScale(0.5125976562500002));
+      assert.equal(0.3, anomalyScale(1));
+      done();
     });
   });
 });

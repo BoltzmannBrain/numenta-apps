@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "id": "/py/agg_opt_schema",
+  "description": "--agg command-line option object passed to model runner; describes the aggregation",
+  "type": "object",
+  "additionalProperties": false,
+
+  "properties": {
+    "windowSize": {
+      "description": "Aggregation window size in seconds",
+      "type": "integer",
+      "required": true
+    },
+    "func": {
+      "description": "A string representation of the aggregation function; compatible with those expected by the `nupic.data.aggregator` module",
+      "type": "string",
+      "enum": ["sum", "mean"],
+      "required": true
+    }
+  }
+}

@@ -17,7 +17,7 @@
 //
 // http://numenta.org/licenses/
 
-import FileStore from '../../../../js/browser/stores/FileStore';
+import FileStore from '../../../../app/browser/stores/FileStore';
 
 const assert = require('assert');
 

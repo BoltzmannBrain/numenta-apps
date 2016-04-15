@@ -1,0 +1,16 @@
+{
+  "source": "./app",
+  "destination": "./docs",
+  "title": "Numenta HTM Studio",
+  "excludes": [
+    "bundle\\.js$",
+    "node_modules"
+  ],
+  "includes": [
+    "\\.(js|jsx)$"
+  ],
+  "lint": true,
+  "plugins": [
+    { "name": "esdoc-es7-plugin" }
+  ]
+}

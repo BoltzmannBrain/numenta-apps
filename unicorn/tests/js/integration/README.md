@@ -1,1 +1,0 @@
-# Javascript Integration Tests Placeholder

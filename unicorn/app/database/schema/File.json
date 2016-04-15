@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "id": "/db/File",
+  "type": "object",
+  "properties": {
+    "uid": {
+      "type": "string",
+      "maxLength": 50,
+      "minLength": 1,
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "filename": {
+      "type": "string",
+      "required": true
+    },
+    "type": {
+      "description": "Sample file from filesystem, or Uploaded file from user?",
+      "enum": [ "sample", "uploaded" ],
+      "type": "string",
+      "default": "uploaded",
+      "required": true
+    },
+    "description": {
+      "type": "string",
+      "description": "File description"
+    },
+    "rowOffset": {
+      "description": "index of first data row in CSV file; zero-based",
+      "type": "integer",
+      "default": 1,
+      "required": true
+    },
+    "records": {
+      "description": "Total number of records in the CSV file",
+      "type": "integer",
+      "required": false
+    }
+  },
+  "additionalProperties": false
+}

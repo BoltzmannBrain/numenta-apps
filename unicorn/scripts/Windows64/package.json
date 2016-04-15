@@ -1,7 +1,7 @@
 {
   "name": "portable_python_win32",
   "version": "1.0.0",
-  "description": "Portable Python for Unicorn (Windows)",
+  "description": "Portable Python for HTM Studio (Windows)",
   "main": "index.js",
   "os": [
     "win32"

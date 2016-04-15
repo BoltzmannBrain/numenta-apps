@@ -20,7 +20,7 @@
 # ----------------------------------------------------------------------
 """
 This script converts CSV data formatted for the OPF into data formatted for
-streaming to the Unicorn model runner.
+streaming to the HTM Studio model runner.
 """
 import argparse
 import csv

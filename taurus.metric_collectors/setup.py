@@ -7,7 +7,6 @@ name = "taurus.metric_collectors"
 setup(
   name = name,
   description = "Taurus Metric Collectors",
-  namespace_packages = ["taurus"],
   packages = find_packages(),
   install_requires = requirements,
   entry_points = {

@@ -56,7 +56,6 @@ setup(
   name = name,
   version = "0.4.0",
   description = "Taurus Server",
-  namespace_packages = ["taurus"], # TODO: TAUR-1209 use name var
   packages = find_packages(),
   install_requires = requirements,
   cmdclass = {"reset_all_data": ResetAllTaurusDataDistutilsCommand},

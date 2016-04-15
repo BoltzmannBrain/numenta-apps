@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "id": "/py/input_opt_schema_param_finder",
+  "description": "--input command-line option object passed to model runner",
+  "type": "object",
+  "additionalProperties": false,
+
+  "properties": {
+    "csv": {
+      "description": "Absolute path to input CSV file; if omitted, will read CSV from stdin.",
+      "type": "string",
+      "required": true
+    },
+
+    "rowOffset": {
+      "description": "index of first data row in CSV file; zero-based",
+      "type": "integer",
+      "required": true
+    },
+
+    "timestampIndex": {
+      "description": "Column index of the timestamp; zero-based",
+      "type": "integer",
+      "required": true
+    },
+
+    "valueIndex": {
+      "description": "Column index of the value; zero-based",
+      "type": "integer",
+      "required": true
+    },
+
+    "datetimeFormat": {
+      "description": "Datetime Format for datetime.strptime",
+      "type": "string",
+      "required": true
+    }
+  }
+}

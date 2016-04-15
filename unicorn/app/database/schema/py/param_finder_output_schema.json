@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "id": "/py/param_finder_output_schema",
+  "description": "Param Finder output results schema",
+  "type": "object",
+  "additionalProperties": false,
+
+  "properties": {
+    "aggInfo": {"$ref": "/py/agg_opt_schema"},
+    "modelInfo": {"$ref": "/py/model_opt_schema"}
+  }
+}

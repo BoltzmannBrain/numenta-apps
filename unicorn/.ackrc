@@ -1,6 +1,9 @@
 --ignore-dir=bundle/
+--ignore-dir=coverage/
 --ignore-dir=docs/
 --ignore-dir=node_modules/
+
+--ignore-file=is:tags
 
 --type-add=css=scss
 --type-set=js=javascript=.js,.jsx,.json

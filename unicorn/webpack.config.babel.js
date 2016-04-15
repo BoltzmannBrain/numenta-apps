@@ -15,23 +15,13 @@
 //
 // http://numenta.org/licenses/
 
-import path from 'path';
-
-import config from './js/main/ConfigService';
-
-
-let destination = path.join(__dirname, config.get('bundle:destination'));
-let publics = path.join(__dirname, config.get('bundle:public'));
-let source = path.join(__dirname, config.get('bundle:source'));
-
-
 /**
  * WebPack ES6 Config File
  */
 export default {
   bail: true,
   devtool: 'source-map',
-  entry: ['babel-polyfill', source],
+  entry: ['babel-polyfill', './app/browser/entry'],
   module: {
     loaders: [
       // fonts
@@ -64,8 +54,8 @@ export default {
   },
   output: {
     filename: 'bundle.js',
-    path: destination,
-    publicPath: publics
+    path: './app/browser/assets/bundle',
+    publicPath: './app/browser/assets/bundle/'
   },
   resolve: {
     extensions: [

@@ -34,12 +34,15 @@ local changes without conflicts:
 
 - Additionally ensure that APPLICATION_CONFIG_PATH is set in your environment.
 - If running with local dynamodb emulation, edit `conf-user/supervisord.conf` to
-  uncomment the lines for the DynamoDB local test tool.
+  uncomment the lines for the DynamoDB local test tool and create an empty
+  `.dynamodb` directory:
 
-Create empty `logs` and `.dynamodb` directories:
+    `mkdir $HOME/.dynamodb`
+
+Create an empty taurus `logs` directory:
 
     mkdir logs
-    mkdir $HOME/.dynamodb
+    
 
 With `taurus` installed, and configuration updated, run `taurus-create-db` to
 initialize the database.
@@ -202,3 +205,17 @@ installation commands in each of the respective packages and in `taurus` even
 if they are already technically installed so that `setuptools` metadata is
 applied correctly, and any updates to dependencies are taken into
 consideration.
+
+Taurus and Docker
+-----------------
+
+A [Dockerfile](https://docs.docker.com/engine/reference/builder/) is included
+to support a docker-based workflow.  To build a docker image, run the following
+command from the root of the `numenta-apps` repository (the parent directory
+of `taurus/`):
+
+```
+docker build -t taurus:latest -f taurus/Dockerfile .
+```
+
+See `Dockerfile` for specific environment variable configuration directives.
