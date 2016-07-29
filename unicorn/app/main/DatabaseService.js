@@ -23,12 +23,16 @@ import isElectronRenderer from 'is-electron-renderer';
 import json2csv from 'json2csv-stream';
 import leveldown from 'leveldown';
 import levelup from 'levelup';
-import moment from 'moment';
 import os from 'os';
 import path from 'path';
 import sublevel from 'level-sublevel';
 import {Validator} from 'jsonschema';
+import {mapAnomalyText} from '../common/common-utils';
+import {
+  parseTimestampFallbackUtc, parseIsoTimestampFallbackUtc, getNaiveTime
+} from '../common/timestamp';
 
+import config from './ConfigService';
 import fileService from './FileService';
 import {
   generateMetricDataId, generateFileId
@@ -50,6 +54,18 @@ const SCHEMAS = [
   PFInputSchema, PFOutputSchema
 ];
 
+import {NA_STRINGS} from '../config/na';
+/**
+ * determine if a value is NA.
+ * @param  {string} field : the field to test for NA.
+ * @return {boolean} true if it is NA, false otherwise
+ */
+function isNA(field) {
+  return (NA_STRINGS.indexOf(field.toLowerCase()) > -1);
+}
+
+/** samples location */
+const SAMPLES_FILE_PATH = path.join(__dirname, config.get('samples:path'));
 
 /**
  * Calculate default database location. If running inside `Electron` then use
@@ -63,7 +79,25 @@ function _getDefaultDatabaseLocation() {
     try {
       // This module is only available inside 'Electron' main process
       const app = require('app'); // eslint-disable-line
-      location = path.join(app.getPath('userData'), 'database');
+      location = path.join(app.getPath('userData'), 'database2');
+    } catch (error) { /* no-op */ }
+  }
+  return location;
+}
+
+/**
+ * Calculate file cache location. If running inside `Electron` then use
+ * the application user data folder.
+ * See https://github.com/atom/electron/blob/master/docs/api/app.md
+ * @return {string} Full path name
+ */
+function _getDefaultFileCacheLocation() {
+  let location = path.join(os.tmpdir());
+  if (!isElectronRenderer) {
+    try {
+      // This module is only available inside 'Electron' main process
+      const app = require('app'); // eslint-disable-line
+      location = path.join(app.getPath('userData'), 'files');
     } catch (error) { /* no-op */ }
   }
   return location;
@@ -80,17 +114,21 @@ function stringifyResultsCallback(callback) {
   return (error, data) => callback(error, JSON.stringify(data));
 }
 
-
 /**
  * HTM Studio: DatabaseService - Respond to a DatabaseClient over IPC.
  *  For sharing our access to a file-based NodeJS database system.
  *  Meant for heavy persistence.
  * @param {string} [path] - Database location path (optional)
+ * @param {string} [fileCachePath] - File cache location path (optional)
  */
 export class DatabaseService {
 
-  constructor(path) {
+  constructor(path, fileCachePath) {
     let location = path || _getDefaultDatabaseLocation();
+    this._fileCachePath = fileCachePath || _getDefaultFileCacheLocation();
+
+    // Create File Cache directory
+    this._createFileCacheDir()
 
     // Configure schema validator
     this.validator = new Validator();
@@ -118,6 +156,17 @@ export class DatabaseService {
    */
   getFile(uid, callback) {
     this._files.get(uid, stringifyResultsCallback(callback));
+  }
+
+  /**
+   * Get a single File by name.
+   * @param {string} filename Unique ID of file to get
+   * @param {Function} callback Async callback function(error, results).
+   *                            The results will be JSON.stringified
+   */
+  getFileByName(filename, callback) {
+    let fileid = generateFileId(filename);
+    this._files.get(fileid, stringifyResultsCallback(callback));
   }
 
   /**
@@ -220,20 +269,24 @@ export class DatabaseService {
   /**
    * Get all/queried ModelData records.
    * @callback
-   * @param {string} metricId Metric ID
-   * @param {Function} callback Async callback: function (error, results)
-   *                            The results will be JSON.stringified
+   * @param {string} metricId - Metric ID
+   * @param {number} offset - If non-null, only fetch records after this index
+   * @param {Function} callback - Async callback: function (error, results)
+   *                              The results will be JSON.stringified
    */
-  getModelData(metricId, callback) {
+  getModelData(metricId, offset, callback) {
+    let start = generateMetricDataId(metricId, offset || 0);
+    let end = `${metricId}\xff`;
+
     let results = [];
     // Metric Data ID is based on metricId. See Util.generateMetricDataId
     this._modelData.createValueStream({
-      gte: `${metricId}`,
-      lt: `${metricId}\xff`
+      gte: start,
+      lt: end
     })
     .on('data', (metric) => {
       results.push([
-        metric.timestamp, metric.metric_value, metric.anomaly_score
+        metric.naive_time, metric.metric_value, metric.anomaly_score
       ]);
     })
     .on('error', callback)
@@ -258,7 +311,7 @@ export class DatabaseService {
       lt: `${metricId}\xff`
     })
     .on('data', (metric) => {
-      results.push([metric.timestamp, metric.metric_value]);
+      results.push([metric.naive_time, metric.metric_value]);
     })
     .on('error', callback)
     .on('end', () => {
@@ -391,7 +444,7 @@ export class DatabaseService {
    * @param {Function} callback - Async done callback: function(error, results)
    */
   putModelBatch(models, callback) {
-    if (typeof metrics === 'string') {
+    if (typeof models === 'string') {
       models = JSON.parse(models);
     }
 
@@ -414,33 +467,31 @@ export class DatabaseService {
     this._models.batch(ops, callback);
   }
 
-
   /**
    * Put a single ModelData record to DB.
-   * @param {Object} data - ModelData object to save
+   * @param {string} modelId - Unique model ID
+   * @param {number} recordIndex - Result index
+   * @param {Object} modelData - ModelData object to save
    * @param {Function} callback - Async done callback: function(error, results)
    */
-  putModelData(data, callback) {
-    if (typeof data === 'string') {
-      data = JSON.parse(data);
-    }
-
-    const validation = this.validator.validate(data, DBModelDataSchema);
+  putModelData(modelId, recordIndex, modelData, callback) {
+    const validation = this.validator.validate(modelData, DBModelDataSchema);
     if (validation.errors.length) {
       callback(validation.errors, null);
       return;
     }
-    let {metric_uid, timestamp} = data;
-    let key = generateMetricDataId(metric_uid, timestamp);
-    this._modelData.put(key, data, callback);
+    let key = generateMetricDataId(modelId, recordIndex);
+    this._modelData.put(key, modelData, callback);
   }
 
   /**
    * Put multiple ModelData records into DB.
+   * @param {string} modelId - Unique metric ID
+   * @param {number} firstRecordIndex - Starting index for this batch
    * @param {Array} data - List of ModelData objects to save
    * @param {Function} callback - Async done callback: function(error, results)
    */
-  putModelDataBatch(data, callback) {
+  putModelDataBatch(modelId, firstRecordIndex, data, callback) {
     if (typeof data === 'string') {
       data = JSON.parse(data);
     }
@@ -453,9 +504,9 @@ export class DatabaseService {
       }
     }
 
-    let ops = data.map((value) => {
-      let {metric_uid, timestamp} = value;
-      let key = generateMetricDataId(metric_uid, timestamp);
+    let ops = data.map((value, i) => {
+      let recordIndex = firstRecordIndex + i;
+      let key = generateMetricDataId(modelId, recordIndex);
       return {
         type: 'put', key, value
       };
@@ -466,10 +517,12 @@ export class DatabaseService {
 
   /**
    * Put a single MetricData record to DB.
+   * @param {string} metricId - Unique metric ID
+   * @param {number} recordIndex - Index for this row
    * @param {Object} metricData - Data object of MetricData info to save
    * @param {Function} callback - Async done callback: function(error, results)
    */
-  putMetricData(metricData, callback) {
+  putMetricData(metricId, recordIndex, metricData, callback) {
     if (typeof metricData === 'string') {
       metricData = JSON.parse(metricData);
     }
@@ -479,17 +532,19 @@ export class DatabaseService {
       callback(validation.errors, null);
       return;
     }
-    let {metric_uid, timestamp} = metricData;
-    let key = generateMetricDataId(metric_uid, timestamp);
+
+    let key = generateMetricDataId(metricId, recordIndex);
     this._metricData.put(key, metricData, callback);
   }
 
   /**
    * Put multiple MetricData records into DB.
+   * @param {string} metricId - Unique metric ID
+   * @param {number} firstRecordIndex - Starting index for this batch
    * @param {Array} data - List of Metric Data objects of MetricDatas to save
    * @param {Function} callback - Async done callback: function(error, results)
    */
-  putMetricDataBatch(data, callback) {
+  putMetricDataBatch(metricId, firstRecordIndex, data, callback) {
     if (typeof data === 'string') {
       data = JSON.parse(data);
     }
@@ -502,9 +557,9 @@ export class DatabaseService {
       }
     }
 
-    let ops = data.map((value) => {
-      let {metric_uid, timestamp} = value;
-      let key = generateMetricDataId(metric_uid, timestamp);
+    let ops = data.map((value, i) => {
+      let recordIndex = firstRecordIndex + i;
+      let key = generateMetricDataId(metricId, recordIndex);
       return {
         type: 'put', key, value
       };
@@ -535,18 +590,20 @@ export class DatabaseService {
    * Exports model results into a CSV file
    * @param  {string}   metricId The metric from which to export results
    * @param  {string}   filename Full path name for the destination file (.csv)
+   * @param  {string}   timestampFormat Format of the timestamp
+   * @param  {number}   probationLength Number of records under probation
    * @param  {Function} callback called when the export operation is complete,
    *                             with a possible error argument
    */
-  exportModelData(metricId, filename, callback) {
+  exportModelData(metricId, filename, timestampFormat, probationLength,
+      callback) {
     const output = fs.createWriteStream(filename);
-    const parser = json2csv({
-      keys: ['timestamp', 'metric_value', 'anomaly_score']
-    });
+    const parser = json2csv();
     parser.pipe(output);
+    let idx = 0;
 
     // Metric Data id is based on metric Id. See Util.generateMetricDataId
-    this._modelData.createValueStream({
+    let inputStream = this._modelData.createValueStream({
       gte: `${metricId}`,
       lt: `${metricId}\xff`
     })
@@ -555,15 +612,37 @@ export class DatabaseService {
       callback(error);
     })
     .on('data', (result) => {
-      let data = Object.assign({}, result, {
-        timestamp: moment(result.timestamp).toDate()
-      });
+      let score, timestamp;
+      if (++idx <= probationLength) {
+        score = null;
+      } else {
+        score = result.anomaly_score;
+      }
+
+      if (timestampFormat) {
+        let [m] = parseIsoTimestampFallbackUtc(result.iso_timestamp);
+        timestamp = m.format(timestampFormat);
+      } else {
+        timestamp = result.iso_timestamp;
+      }
+
+      let data = {
+        timestamp,
+        metric_value: result.metric_value,
+        anomaly_level: mapAnomalyText(score),
+        raw_anomaly_score: result.anomaly_score
+      };
       parser.write(JSON.stringify(data));
     })
     .on('end', () => {
       parser.end();
       callback();
     });
+
+    output.on('error', (error) => {
+      inputStream.destroy();
+      callback(error);
+    })
   }
 
   /**
@@ -663,31 +742,19 @@ export class DatabaseService {
     })
     .on('error', callback)
     .on('end', () => {
+      let metricsDeleted = 0;
       for (let i = 0; i < metrics.length; i++) {
         this.deleteMetric(metrics[i], (error) => {
           if (error) {
             callback(error);
             return;
           }
+          if (++metricsDeleted === metrics.length) {
+            callback();
+            return;
+          }
         });
       }
-      callback();
-    });
-  }
-
-  /**
-   * Delete metric and associated metrics from database.
-   * @param  {string}   fileId   File to delete
-   * @param  {Function} callback called when the operation is complete,
-   *                             with a possible error argument
-   */
-  deleteFileById(fileId, callback) {
-    this._files.del(fileId, (error) => {
-      if (error) {
-        callback(error);
-        return;
-      }
-      this.deleteMetricsByFile(fileId, callback);
     });
   }
 
@@ -698,6 +765,7 @@ export class DatabaseService {
    *                             with a possible error argument
    */
   deleteFile(filename, callback) {
+    this._deleteFileFromCache(filename);
     let fileId = generateFileId(filename);
     this._files.del(fileId, (error) => {
       if (error) {
@@ -846,7 +914,7 @@ export class DatabaseService {
    * Upload a new file to the database performing the following steps:
    * - Save file metadata
    * - Save fields/metrics metadata
-   * - Save metric data
+   * - Save metric data (that is not NA)
    *
    * > NOTE: It assumes the file passed validation. See {@link FileService#validate}
    *
@@ -859,8 +927,8 @@ export class DatabaseService {
     if (typeof file === 'string') {
       file = instantiator.instantiate(DBFileSchema);
       file.uid = generateFileId(fileToUpload);
-      file.filename = fileToUpload;
       file.name = path.basename(fileToUpload);
+      file.filename = path.join(this._fileCachePath, file.name);
     } else {
       // Validate file object
       const validation = this.validator.validate(file, DBFileSchema);
@@ -868,9 +936,25 @@ export class DatabaseService {
         callback(validation.errors);
         return;
       }
+      // Get file to upload original name from 'file' object
+      fileToUpload = file.filename;
     }
 
-    promisify(::fileService.getFields, file.filename)
+    new Promise((resolve, reject) => {
+      if (path.dirname(fileToUpload) === SAMPLES_FILE_PATH) {
+        // Do not copy sample files
+        resolve();
+        return;
+      }
+
+      // Copy file to cache
+      let source = fs.createReadStream(fileToUpload);
+      let target = fs.createWriteStream(file.filename);
+      source.on('error', reject);
+      target.on('error', reject);
+      target.on('finish', resolve);
+      source.pipe(target);
+    }).then(() => promisify(::fileService.getFields, file.filename))
       .then((results) => {
         let {offset, fields} = results;
         file.rowOffset = offset;
@@ -889,39 +973,101 @@ export class DatabaseService {
           columns: false,
           offset : file.rowOffset
         };
-        fileService.getData(file.filename, options, ((error, data) => { // eslint-disable-line
+
+        let recordIndex = 0;
+        fileService.getData(file.filename, options, ((error, data) => {
           if (error) {
             throw error;
           }
           if (data) {
-            records++;
-            metrics.forEach((field) => {
-              // Collect data for each numeric field
-              if (field.type === 'number') {
-                let metricData = {
-                  metric_uid: field.uid,
-                  timestamp: moment(data[timestampField.index], timestampField.format).valueOf(), // eslint-disable-line
-                  metric_value: parseFloat(data[field.index])
-                };
-                // Save data
-                this.putMetricData(metricData, (error) => { // eslint-disable-line
-                  if (error) {
-                    throw error;
-                  }
-                });
-              }
-            });
+            let validTimestamp = !isNA(data[timestampField.index].toString());
+            // dont store data with invalid timestamps and don't increment records.
+            if (validTimestamp) {
+              records++;
+              metrics.forEach((field) => {
+                // Collect data for each numeric field
+                let validField = !isNA(data[field.index].toString());
+                if (field.type === 'number' && validField) {
+                  let [m, hasTimeZone] = parseTimestampFallbackUtc(
+                    data[timestampField.index], timestampField.format);
+                  let metricData = {
+                    iso_timestamp: m.format(hasTimeZone
+                                            ? 'YYYY-MM-DDTHH:mm:ss.SSSSSSZ'
+                                            : 'YYYY-MM-DDTHH:mm:ss.SSSSSS'),
+                    naive_time: getNaiveTime(m),
+                    metric_value: parseFloat(data[field.index])
+                  };
+                  // Save data
+                  this.putMetricData(field.uid, recordIndex, metricData,
+                                     (error) => { // eslint-disable-line max-nested-callbacks
+                                       if (error) {
+                                         throw error;
+                                       }
+                                     });
+                }
+              });
+            }
           } else {
             // No more data
             file.records = records;
             this.putFile(file, (error) => {
               callback(error, file);
-            })
+            });
             return;
           }
-        }))
+
+          recordIndex++;
+        }));
       })
-      .catch(callback);
+      .catch((error) => {
+        // Delete file from cache
+        this._deleteFileFromCache(file.filename);
+        callback(error);
+      });
+  }
+
+  /**
+   * Create File cache dir if it does not exist
+   * @param  {Function} callback Async callback
+   */
+  _createFileCacheDir(callback) {
+    fs.mkdir(this._fileCachePath, (err) => {
+      if (callback) {
+        if (err) {
+          // Ignore 'EEXIST: file already exists'
+          if (err.code && err.code === 'EEXIST') {
+            callback();
+            return;
+          }
+          callback(err);
+          return;
+        }
+        callback();
+        return;
+      }
+    });
+  }
+
+  /**
+   * Delete file from cache
+   * @param  {filename} filename File to delete
+   * @param {Function} callback Async callback function(error, )
+  */
+  _deleteFileFromCache(filename, callback) {
+    // Delete file from cache
+    if (path.dirname(filename) === this._fileCachePath) {
+      fs.access(filename, (err) => {
+        if (!err) {
+          fs.unlink(filename, callback);
+        } else if (callback) {
+          callback(err)
+          return;
+        }
+      });
+    } else if (callback) {
+      callback()
+      return;
+    }
   }
 }
 

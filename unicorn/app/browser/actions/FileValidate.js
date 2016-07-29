@@ -16,7 +16,6 @@
 // http://numenta.org/licenses/
 
 import {ACTIONS} from '../lib/Constants';
-
 /**
  * Validate the file
  *
@@ -25,15 +24,35 @@ import {ACTIONS} from '../lib/Constants';
  * @return {Promise}
  */
 export default function (actionContext, filename) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.VALIDATE_FILE);
+
   return new Promise((resolve, reject) => {
     let fs = actionContext.getFileClient();
-    fs.validate(filename, (error, results) => {
-      if (error) {
+    let db = actionContext.getDatabaseClient();
+
+    db.getFileByName(filename, (err, dbfile) => { // eslint-disable-line
+      if (dbfile) {
+        let file = JSON.parse(dbfile);
+        actionContext.getGATracker().exception(ACTIONS.VALIDATE_FILE_FAILED);
         actionContext.dispatch(ACTIONS.VALIDATE_FILE_FAILED, {
-          error, ...results
+          error: 'File already exists', warning: null, file, fields: []
         });
       } else {
-        actionContext.dispatch(ACTIONS.VALIDATE_FILE, results);
+        fs.validate(filename, (error, warning, results) => {
+          if (error) {
+            actionContext.getGATracker()
+              .exception(ACTIONS.VALIDATE_FILE_FAILED);
+            actionContext.dispatch(ACTIONS.VALIDATE_FILE_FAILED, {
+              error, warning, ...results
+            });
+          } else if (warning) {
+            actionContext.dispatch(ACTIONS.VALIDATE_FILE_WARNING, {
+              error, warning, ...results
+            });
+          } else {
+            actionContext.dispatch(ACTIONS.VALIDATE_FILE, results);
+          }
+        });
       }
     });
   });

@@ -1,4 +1,5 @@
 --compilers js:babel-core/register
 --recursive
---reporter xunit
+--reporter mocha-bamboo-reporter
+--reporter-options output=test-reports/mocha.json
 --timeout 5000

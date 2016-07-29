@@ -1,6 +1,6 @@
 # ----------------------------------------------------------------------
 # Numenta Platform for Intelligent Computing (NuPIC)
-# Copyright (C) 2015, Numenta, Inc.  Unless you have purchased from
+# Copyright (C) 2015-2016, Numenta, Inc.  Unless you have purchased from
 # Numenta, Inc. a separate commercial license for this software code, the
 # following terms and conditions apply:
 #
@@ -68,7 +68,7 @@ def upgrade():
       sa.Column("server", sa.VARCHAR(length=100), server_default="",
                 nullable=False),
       sa.Column("timestamp", sa.TIMESTAMP(),
-                server_default="0000-00-00 00:00:00", nullable=False),
+                server_default=None, nullable=False),
       sa.Column("status", sa.VARCHAR(length=32), server_default="",
                 nullable=False),
       sa.PrimaryKeyConstraint("server", "timestamp")
@@ -86,7 +86,9 @@ def upgrade():
       "annotation",
       sa.Column("uid", sa.VARCHAR(length=40), nullable=False),
       sa.Column("timestamp", sa.TIMESTAMP(), nullable=False),
-      sa.Column("created", sa.TIMESTAMP(), nullable=False),
+      sa.Column("created", sa.TIMESTAMP(),
+                server_default=sa.text("CURRENT_TIMESTAMP"),
+                nullable=False),
       sa.Column("device", sa.VARCHAR(length=40), nullable=True),
       sa.Column("user", sa.VARCHAR(length=100), nullable=True),
       sa.Column("server", sa.VARCHAR(length=100), nullable=True),

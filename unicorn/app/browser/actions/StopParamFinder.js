@@ -25,6 +25,8 @@ import {ACTIONS} from '../lib/Constants';
  * @emits {STOP_PARAM_FINDER}
  */
 export default function (actionContext, metricId) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.STOP_PARAM_FINDER);
+
   let paramFinderClient = actionContext.getParamFinderClient();
   paramFinderClient.removeParamFinder(metricId);
   actionContext.dispatch(ACTIONS.STOP_PARAM_FINDER, metricId);

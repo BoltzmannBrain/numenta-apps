@@ -22,6 +22,7 @@ import {createMockActionContext} from 'fluxible/utils';
 import FileStore from '../../../../app/browser/stores/FileStore';
 import DeleteFileAction from '../../../../app/browser/actions/DeleteFile';
 import {ACTIONS} from '../../../../app/browser/lib/Constants';
+import MockGATracker from './MockGATracker';
 
 const EXPECTED_ERROR = {
   type:'NotFoundError'
@@ -38,14 +39,18 @@ class MockDatabaseClient {
 }
 
 describe('DeleteFileAction', () => {
-  let actionContext;
+  let actionContext, gaTracker;
 
   beforeEach(() => {
     actionContext = createMockActionContext({
       stores: [FileStore]
     });
+    gaTracker = new MockGATracker();
     actionContext['getDatabaseClient'] = () => {
       return new MockDatabaseClient();
+    }
+    actionContext['getGATracker'] = () => {
+      return gaTracker;
     }
   });
 

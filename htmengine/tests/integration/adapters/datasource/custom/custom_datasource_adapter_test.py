@@ -29,20 +29,21 @@ import pkg_resources
 import unittest
 import uuid
 
-from htmengine.htmengine_logging import getExtendedLogger
-
-from nta.utils.config import Config
+from htmengine import repository
 import htmengine.adapters.datasource as datasource_adapter_factory
 import htmengine.exceptions as app_exceptions
-from htmengine import repository
+from htmengine.htmengine_logging import getExtendedLogger
 from htmengine.repository import schema
 from htmengine.repository.queries import MetricStatus
 from htmengine.runtime import scalar_metric_utils
-import htmengine.utils
 from htmengine.test_utils.test_case_base import TestCaseBase
-
+import htmengine.utils
+from nta.utils.config import Config
 from nta.utils.logging_support_raw import LoggingSupport
 
+
+# Disable warning: Access to a protected member
+# pylint: disable=W0212
 
 
 g_log = None
@@ -98,6 +99,7 @@ class CustomDatasourceAdapterTest(TestCaseBase):
       htmengine.utils.validate(modelSpec, g_model_spec_schema)
       htmengine.utils.validate(modelSpec["metricSpec"],
                                g_custom_metric_spec_schema)
+
     except Exception:
       g_log.exception("Failed validation of custom modelSpec=%r", modelSpec)
       raise
@@ -399,6 +401,239 @@ class CustomDatasourceAdapterTest(TestCaseBase):
     self.checkEncoderResolution(metricId, 0, 100)
 
 
+  @staticmethod
+  def _openTestDataFile(filename):
+    """ Opens specified test data file in the htmengine integration test data
+    dir. """
+    basePath = os.path.split(os.path.abspath(__file__))[0]
+    dataDirPath = os.path.join(basePath, "../../../data")
+    knownDataFilePath = os.path.join(dataDirPath, filename)
+    return open(knownDataFilePath, "rb")
+
+
+  def testMonitorMetricWithCompleteModelParams(self):
+    """ Test monitorMetric with complete set of user-provided model parameters
+    that activates a model """
+    metricName = "test-" + uuid.uuid1().hex
+
+    adapter = datasource_adapter_factory.createCustomDatasourceAdapter()
+
+    g_log.info("Creating htmengine custom metric; name=%s", metricName)
+    metricId = adapter.createMetric(metricName)
+    self.addCleanup(adapter.deleteMetricByName, metricName)
+
+    fileName = "custom_datasource_adapter_test_model_config.json"
+    with self._openTestDataFile(fileName) as modelConfigFile:
+      modelConfig = json.load(modelConfigFile)
+
+    # Turn on monitoring
+    modelSpec = {
+      "datasource": "custom",
+      "metricSpec": {
+        "metric": metricName
+      },
+      "completeModelParams": {
+        "modelConfig": modelConfig,
+        "inferenceArgs": {"predictionSteps": [1], "predictedField": "bar",
+                          "inputPredictedField": "auto"},
+        "timestampFieldName": "foo",
+        "valueFieldName": "bar"
+      }
+    }
+
+    adapter.monitorMetric(modelSpec)
+
+    with self.engine.connect() as conn:
+      metricObj = repository.getMetric(conn,
+                                       metricId,
+                                       fields=[schema.metric.c.status,
+                                               schema.metric.c.parameters])
+
+    self._validateModelSpec(json.loads(metricObj.parameters))
+
+    self.assertIn(metricObj.status, (MetricStatus.CREATE_PENDING,
+                                     MetricStatus.ACTIVE))
+    self.assertEqual(json.loads(metricObj.parameters), modelSpec)
+
+    g_log.info("Waiting for model to become active")
+    self.checkModelIsActive(metricId)
+
+
+  def testMonitorMetricModelParamsAndCompleteModelParams(self):
+    """ Test monitorMetric() raises ValueError for mutually exclusive model
+     params input options. """
+    metricName = "test-" + uuid.uuid1().hex
+
+    adapter = datasource_adapter_factory.createCustomDatasourceAdapter()
+
+    fileName = "custom_datasource_adapter_test_model_config.json"
+    with self._openTestDataFile(fileName) as modelConfigFile:
+      modelConfig = json.load(modelConfigFile)
+
+    modelSpec = {
+      "datasource": "custom",
+      "metricSpec": {
+        "metric": metricName
+      },
+      "completeModelParams": {
+        "modelConfig": modelConfig,
+        "inferenceArgs": {"predictionSteps": [1], "predictedField": "bar",
+                          "inputPredictedField": "auto"},
+        "timestampFieldName": "foo",
+        "valueFieldName": "bar"
+      },
+      "modelParams": {
+        "min": 0,
+        "max": 100
+      }
+    }
+
+    with self.assertRaises(ValueError) as excCtx:
+      adapter.monitorMetric(modelSpec)
+
+    excArgZero = excCtx.exception.args[0]
+    initialMsg = excArgZero[0: len(
+      scalar_metric_utils._MUTEX_MODEL_SPEC_MSG)]
+    self.assertEqual(initialMsg,
+                     scalar_metric_utils._MUTEX_MODEL_SPEC_MSG)
+
+
+  def testMonitorMetricCompleteModelParamsNoValueFieldName(self):
+    """ Test monitorMetric() raises ValueError with completeModelParams but
+    not valueFieldName. """
+    metricName = "test-" + uuid.uuid1().hex
+
+    adapter = datasource_adapter_factory.createCustomDatasourceAdapter()
+
+    fileName = "custom_datasource_adapter_test_model_config.json"
+    with self._openTestDataFile(fileName) as modelConfigFile:
+      modelConfig = json.load(modelConfigFile)
+
+    modelSpec = {
+      "datasource": "custom",
+      "metricSpec": {
+        "metric": metricName
+      },
+      "completeModelParams": {
+        "modelConfig": modelConfig,
+        "inferenceArgs": {"predictionSteps": [1], "predictedField": "bachman",
+                          "inputPredictedField": "auto"},
+        "timestampFieldName": "erlich"
+      }
+    }
+
+    with self.assertRaises(ValueError) as excCtx:
+      adapter.monitorMetric(modelSpec)
+
+    excArgZero = excCtx.exception.args[0]
+    initialMsg = excArgZero[0: len(
+      scalar_metric_utils._NO_VALUE_FIELD_NAME_MSG)]
+    self.assertEqual(initialMsg,
+                     scalar_metric_utils._NO_VALUE_FIELD_NAME_MSG)
+
+
+  def testMonitorMetricCompleteModelParamsNoTimestampFieldName(self):
+    """ Test monitorMetric() raises ValueError with completeModelParams but
+    not timestampFieldName. """
+    metricName = "test-" + uuid.uuid1().hex
+
+    adapter = datasource_adapter_factory.createCustomDatasourceAdapter()
+
+    fileName = "custom_datasource_adapter_test_model_config.json"
+    with self._openTestDataFile(fileName) as modelConfigFile:
+      modelConfig = json.load(modelConfigFile)
+
+    modelSpec = {
+      "datasource": "custom",
+      "metricSpec": {
+        "metric": metricName
+      },
+      "completeModelParams": {
+        "modelConfig": modelConfig,
+        "inferenceArgs": {"predictionSteps": [1], "predictedField": "snow",
+                          "inputPredictedField": "auto"},
+        "valueFieldName": "snow"
+      }
+    }
+
+    with self.assertRaises(ValueError) as excCtx:
+      adapter.monitorMetric(modelSpec)
+
+    excArgZero = excCtx.exception.args[0]
+    initialMsg = excArgZero[0: len(
+      scalar_metric_utils._NO_TIMESTAMP_FIELD_NAME_MSG)]
+    self.assertEqual(initialMsg,
+                     scalar_metric_utils._NO_TIMESTAMP_FIELD_NAME_MSG)
+
+
+  def testMonitorMetricCompleteModelParamsNoInferenceArgs(self):
+    """ Test monitorMetric() raises ValueError with completeModelParams but
+    not inferenceArgs. """
+    metricName = "test-" + uuid.uuid1().hex
+
+    adapter = datasource_adapter_factory.createCustomDatasourceAdapter()
+
+    fileName = "custom_datasource_adapter_test_model_config.json"
+    with self._openTestDataFile(fileName) as modelConfigFile:
+      modelConfig = json.load(modelConfigFile)
+
+    modelSpec = {
+      "datasource": "custom",
+      "metricSpec": {
+        "metric": metricName
+      },
+      "completeModelParams": {
+        "modelConfig": modelConfig,
+        "timestampFieldName": "jon",
+        "valueFieldName": "snow"
+      }
+    }
+
+    with self.assertRaises(ValueError) as excCtx:
+      adapter.monitorMetric(modelSpec)
+
+    excArgZero = excCtx.exception.args[0]
+    initialMsg = excArgZero[0: len(
+      scalar_metric_utils._NO_INFERENCE_ARGS_MSG)]
+    self.assertEqual(initialMsg,
+                     scalar_metric_utils._NO_INFERENCE_ARGS_MSG)
+
+
+  def testMonitorMetricNameMismatch(self):
+    """ Test monitorMetric() raises ValueError when inferenceArgs-predictedField
+    doesn't match valueFieldName. """
+    metricName = "test-" + uuid.uuid1().hex
+
+    adapter = datasource_adapter_factory.createCustomDatasourceAdapter()
+
+    fileName = "custom_datasource_adapter_test_model_config.json"
+    with self._openTestDataFile(fileName) as modelConfigFile:
+      modelConfig = json.load(modelConfigFile)
+
+    modelSpec = {
+      "datasource": "custom",
+      "metricSpec": {
+        "metric": metricName
+      },
+      "completeModelParams": {
+        "modelConfig": modelConfig,
+        "inferenceArgs": {"predictionSteps": [1], "predictedField": "baz",
+                          "inputPredictedField": "auto"},
+        "timestampFieldName": "snorf",
+        "valueFieldName": "bar"
+      }
+    }
+
+    with self.assertRaises(ValueError) as excCtx:
+      adapter.monitorMetric(modelSpec)
+
+    excArgZero = excCtx.exception.args[0]
+    initialMsg = excArgZero[0: len(
+      scalar_metric_utils._INCONSISTENT_PREDICTED_FIELD_NAME_MSG)]
+    self.assertEqual(initialMsg,
+                     scalar_metric_utils._INCONSISTENT_PREDICTED_FIELD_NAME_MSG)
+
+
   def testMonitorMetricWithMinResolution(self):
     """
     Test monitorMetric with user-provided min/max and minResolution
@@ -550,8 +785,8 @@ class CustomDatasourceAdapterTest(TestCaseBase):
     with self.engine.connect() as conn:
       metricObj = repository.getMetric(conn,
                                        metricId,
-                                      fields=[schema.metric.c.parameters,
-                                              schema.metric.c.status])
+                                       fields=[schema.metric.c.parameters,
+                                               schema.metric.c.status])
     self.assertEqual(metricObj.status, MetricStatus.PENDING_DATA)
     self.assertEqual(json.loads(metricObj.parameters), modelSpec)
 
@@ -656,6 +891,82 @@ class CustomDatasourceAdapterTest(TestCaseBase):
                                        fields=[schema.metric.c.parameters,
                                                schema.metric.c.status])
     self.assertEqual(metricObj.status, MetricStatus.PENDING_DATA)
+    self.assertEqual(json.loads(metricObj.parameters), modelSpec)
+
+    self._validateModelSpec(json.loads(metricObj.parameters))
+
+    # Export again
+    exportSpec = adapter.exportModel(metricId)
+    checkExportSpec(exportSpec)
+
+
+  def testExportImportCompleteModelParams(self):
+    metricName = "test-" + uuid.uuid1().hex
+
+    adapter = datasource_adapter_factory.createCustomDatasourceAdapter()
+
+    g_log.info("Creating htmengine custom metric; name=%s", metricName)
+    metricId = adapter.createMetric(metricName)
+    self.addCleanup(adapter.deleteMetricByName, metricName)
+
+    # Add some data
+    # NOTE: we discard the fractional part because it gets eliminated
+    # in the database, and we will want to compare against retrieved
+    # items later.
+    now = datetime.datetime.utcnow().replace(microsecond=0)
+    data = [
+      (0, now - datetime.timedelta(minutes=5)),
+      (100, now)
+    ]
+
+    with self.engine.connect() as conn:
+      repository.addMetricData(conn, metricId, data)
+
+    fileName = "custom_datasource_adapter_test_model_config.json"
+    with self._openTestDataFile(fileName) as modelConfigFile:
+      modelConfig = json.load(modelConfigFile)
+
+    # Turn on monitoring
+    modelSpec = {
+      "datasource": "custom",
+      "metricSpec": {
+        "metric": metricName
+      },
+      "completeModelParams": {
+        "modelConfig": modelConfig,
+        "inferenceArgs": {"predictionSteps": [1], "predictedField": "bar",
+                          "inputPredictedField": "auto"},
+        "timestampFieldName": "foo",
+        "valueFieldName": "bar"
+      }
+    }
+
+    adapter.monitorMetric(modelSpec)
+
+    def checkExportSpec(exportSpec):
+      self.assertEqual(exportSpec["datasource"], modelSpec["datasource"])
+      self.assertEqual(exportSpec["metricSpec"], modelSpec["metricSpec"])
+      self.assertSequenceEqual(exportSpec["data"], data)
+
+    # Export
+    exportSpec = adapter.exportModel(metricId)
+    checkExportSpec(exportSpec)
+
+    # Delete metric
+    adapter.deleteMetricByName(metricName)
+    self.checkModelDeleted(metricId)
+
+    # Import
+    metricId = adapter.importModel(
+      htmengine.utils.jsonDecode(htmengine.utils.jsonEncode(exportSpec)))
+
+    with self.engine.connect() as conn:
+      metricObj = repository.getMetric(conn,
+                                       metricId,
+                                       fields=[schema.metric.c.parameters,
+                                               schema.metric.c.status])
+    self.assertIn(metricObj.status, (MetricStatus.CREATE_PENDING,
+                                     MetricStatus.ACTIVE))
     self.assertEqual(json.loads(metricObj.parameters), modelSpec)
 
     self._validateModelSpec(json.loads(metricObj.parameters))

@@ -26,21 +26,12 @@
 
 import datetime
 import dateutil.tz
-import logging
 import random
 import unittest
 
 import numpy
 
-from nta.utils.logging_support_raw import LoggingSupport
 from unicorn_backend import param_finder
-
-_LOGGER = logging.getLogger("unicorn_param_finder_test")
-
-
-
-def setUpModule():
-  LoggingSupport.initTestApp()
 
 
 
@@ -48,73 +39,64 @@ class ParamFinderTestCase(unittest.TestCase):
   def testGetMedianSamplingInterval(self):
     timestamps = numpy.array([datetime.datetime(2000, 1, 1) +
                               datetime.timedelta(hours=i) for i in xrange(24)])
-    (medianSamplingInterval,
-     medianAbsoluteDev) = param_finder._getMedianSamplingInterval(timestamps)
-    self.assertAlmostEqual(medianSamplingInterval,
-                           numpy.timedelta64(3600, 's'))
-    self.assertAlmostEqual(medianAbsoluteDev,
-                           numpy.timedelta64(0, 's'))
+    timestamps = timestamps.astype('datetime64[ms]')
+    medianSamplingIntervalInMs = param_finder._getMedianSamplingInterval(
+      timestamps)
+
+    self.assertAlmostEqual(medianSamplingIntervalInMs,
+                           numpy.timedelta64(3600 * 1000, 'ms'))
 
 
   def testGetAggregationFunction(self):
-    aggFunc = param_finder._getAggregationFunction(numpy.timedelta64(300, 's'),
-                                                   numpy.timedelta64(0, 's'),
-                                                   aggregationFuncThresh=0.2)
+    aggFunc = param_finder._getAggregationFunction(numpy.random.rand(100, 1))
     self.assertEqual(aggFunc, 'mean')
 
-    aggFunc = param_finder._getAggregationFunction(numpy.timedelta64(300, 's'),
-                                                   numpy.timedelta64(100, 's'),
-                                                   aggregationFuncThresh=0.2)
+    # use sum aggregation for binary data
+    aggFunc = param_finder._getAggregationFunction(numpy.ones((100, 1)))
     self.assertEqual(aggFunc, 'sum')
 
 
   def testResampleData(self):
     # test upsampling by a factor of 2
-    timestamps = numpy.array([numpy.datetime64(
+    timestampsInS = numpy.array([numpy.datetime64(
       datetime.datetime(2000, 1, 1, tzinfo=dateutil.tz.tzlocal()) +
       datetime.timedelta(hours=i)) for i in xrange(8)])
     values = numpy.linspace(0, 7, 8)
-    newSamplingInterval = numpy.timedelta64(1800, 's')
-    (newTimeStamps, newValues) = param_finder._resampleData(timestamps,
-                                                            values,
-                                                            newSamplingInterval)
 
-    trueNewTimeStamps = numpy.array([numpy.datetime64(
-      datetime.datetime(2000, 1, 1, tzinfo=dateutil.tz.tzlocal()) +
-      datetime.timedelta(hours=0.5 * i)) for i in xrange(15)])
+    newSamplingIntervalInS = numpy.timedelta64(1800, 's')
+    newSamplingIntervalInMs = newSamplingIntervalInS.astype('timedelta64[ms]')
+    timestampsInMs = timestampsInS.astype('datetime64[ms]')
+
+    newValues = param_finder._resampleData(timestampsInMs, values,
+                                           newSamplingIntervalInMs)
+
     self.assertTrue(numpy.allclose(newValues, numpy.linspace(0, 7, 15)))
-    timestampError = (numpy.sum(
-      numpy.abs(newTimeStamps - trueNewTimeStamps))).item().total_seconds()
-    self.assertAlmostEqual(timestampError, 0)
 
     # test down-sampling by a factor of 2
-    newSamplingInterval = numpy.timedelta64(7200, 's')
-    (newTimeStamps, newValues) = param_finder._resampleData(timestamps,
-                                                            values,
-                                                            newSamplingInterval)
-    trueNewTimeStamps = numpy.array([numpy.datetime64(
-      datetime.datetime(2000, 1, 1, tzinfo=dateutil.tz.tzlocal()) +
-      datetime.timedelta(hours=2 * i)) for i in xrange(4)])
-    timestampError = (numpy.sum(
-      numpy.abs(newTimeStamps - trueNewTimeStamps))).item().total_seconds()
+    newSamplingIntervalInS = numpy.timedelta64(7200, 's')
+    newSamplingIntervalInMs = newSamplingIntervalInS.astype('timedelta64[ms]')
+    newValues = param_finder._resampleData(timestampsInMs, values,
+                                           newSamplingIntervalInMs)
+
     self.assertTrue(numpy.allclose(newValues, numpy.linspace(0, 6, 4)))
-    self.assertAlmostEqual(timestampError, 0)
 
 
   def testCalculateContinuousWaveletTransform(self):
     """
     Verify that the periodicity can be correctly identified with CWT
     """
-    samplingInterval = numpy.timedelta64(300, 's')
+    samplingIntervalInS = numpy.timedelta64(300, 's')
+    samplingIntervalInMs = samplingIntervalInS.astype('timedelta64[ms]')
     values = numpy.sin(numpy.linspace(0, 100, 101) * 2 * numpy.pi / 10.0)
     targetPeriod = 3000.0
 
-    (cwtVar, timeScale) = param_finder._calculateContinuousWaveletTransform(
-      samplingInterval, values)
+    (cwtVar, timeScaleInMs) = param_finder._calculateContinuousWaveletTransform(
+      samplingIntervalInMs, values)
 
-    calculatedPeriod = timeScale[numpy.where(cwtVar == max(cwtVar))[0][0]]
-    calculatedPeriod = calculatedPeriod.astype('float32')
-    self.assertTrue(abs(targetPeriod - calculatedPeriod) / targetPeriod < .1)
+    calculatedPeriodInMs = timeScaleInMs[numpy.where(
+      cwtVar == max(cwtVar))[0][0]]
+    calculatedPeriodInS = calculatedPeriodInMs.astype('float32') / 1000
+    self.assertTrue(abs(targetPeriod - calculatedPeriodInS) / targetPeriod < .1)
 
 
   def testDetermineEncoderTypes(self):
@@ -122,39 +104,42 @@ class ParamFinderTestCase(unittest.TestCase):
     dayPeriod = 86400.0
     weekPeriod = 604800.0
 
-    samplingInterval = numpy.timedelta64(300, 's')
+    samplingIntervalInS = numpy.timedelta64(300, 's')
     widths = numpy.logspace(0, numpy.log10(40000 / 20), 50)
-    timeScale = widths * samplingInterval * 4
-    timeScale = timeScale.astype('float64')
+    timeScaleInS = widths * samplingIntervalInS * 4
 
     # a flat cwtVar distribution, no encoder should be used
-    cwtVar = numpy.ones(shape=timeScale.shape)
+    cwtVar = numpy.ones(shape=timeScaleInS.shape)
+
     (useTimeOfDay,
-     useDayOfWeek) = param_finder._determineEncoderTypes(cwtVar, timeScale)
+     useDayOfWeek) = param_finder._determineEncoderTypes(cwtVar, timeScaleInS)
     self.assertFalse(useTimeOfDay)
     self.assertFalse(useDayOfWeek)
 
     # make a peak around daily period
-    cwtVar = numpy.exp(-(timeScale - dayPeriod) ** 2 / (2 * 100000.0 ** 2))
+    ts = timeScaleInS.astype('float64')
+    cwtVar = numpy.exp(-(ts - dayPeriod) ** 2 / (2 * 100000.0 ** 2))
     (useTimeOfDay,
-     useDayOfWeek) = param_finder._determineEncoderTypes(cwtVar, timeScale)
+     useDayOfWeek) = param_finder._determineEncoderTypes(cwtVar, timeScaleInS)
     self.assertTrue(useTimeOfDay)
     self.assertFalse(useDayOfWeek)
 
     # make a peak around weekly period
-    cwtVar = numpy.exp(-(timeScale - weekPeriod) ** 2 / (2 * 100000.0 ** 2))
+    ts = timeScaleInS.astype('float64')
+    cwtVar = numpy.exp(-(ts - weekPeriod) ** 2 / (2 * 100000.0 ** 2))
     (useTimeOfDay,
-     useDayOfWeek) = param_finder._determineEncoderTypes(cwtVar, timeScale)
+     useDayOfWeek) = param_finder._determineEncoderTypes(cwtVar, timeScaleInS)
     self.assertFalse(useTimeOfDay)
-    self.assertTrue(useDayOfWeek)
+    self.assertFalse(useDayOfWeek)  # dayOfWeek is always false in Unicorn
 
-    # a double peaked function
-    cwtVar = (numpy.exp(-(timeScale - dayPeriod) ** 2 / (2 * 100000.0 ** 2)) +
-              numpy.exp(-(timeScale - weekPeriod) ** 2 / (2 * 100000.0 ** 2)))
+    # A double peaked function.
+    ts = timeScaleInS.astype('float64')
+    cwtVar = (numpy.exp(-(ts - dayPeriod) ** 2 / (2 * 100000.0 ** 2)) +
+              numpy.exp(-(ts - weekPeriod) ** 2 / (2 * 100000.0 ** 2)))
     (useTimeOfDay,
-     useDayOfWeek) = param_finder._determineEncoderTypes(cwtVar, timeScale)
+     useDayOfWeek) = param_finder._determineEncoderTypes(cwtVar, timeScaleInS)
     self.assertTrue(useTimeOfDay)
-    self.assertTrue(useDayOfWeek)
+    self.assertFalse(useDayOfWeek)  # dayOfWeek is always false in Unicorn
 
 
   def testDetermineAggregationWindow(self):
@@ -162,37 +147,45 @@ class ParamFinderTestCase(unittest.TestCase):
     Verify aggregation window can be determined from the cwtVar distribution
     """
     weekPeriod = 604800.0
-    samplingInterval = numpy.timedelta64(300, 's')
+    samplingIntervalInS = numpy.timedelta64(300, 's')
     widths = numpy.logspace(0, numpy.log10(40000 / 20), 50)
-    timeScale = widths * samplingInterval * 4
-    timeScale = timeScale.astype('float64')
-    cwtVar = numpy.exp(-(timeScale - weekPeriod) ** 2 / (2 * 100000.0 ** 2))
+
+    timeScaleInS = widths * samplingIntervalInS * 4
+    timeScaleInS = timeScaleInS.astype('timedelta64[s]')
+
+    ts = timeScaleInS.astype('float64')
+    cwtVar = numpy.exp(-(ts - weekPeriod) ** 2 / (2 * 100000.0 ** 2))
     numDataPts = 40000
 
-    maxSamplingInterval = (float(numDataPts) / 1000.0 * samplingInterval)
+    maxSamplingInterval = (float(numDataPts) / 1000.0 * samplingIntervalInS)
     maxSamplingInterval = maxSamplingInterval.item().total_seconds()
 
-    aggregationTimeScale = param_finder._determineAggregationWindow(
-      timeScale=timeScale,
+    timeScaleInMs = timeScaleInS.astype('timedelta64[ms]')
+    samplingIntervalInMs = samplingIntervalInS.astype('timedelta64[ms]')
+    aggregationTimeScaleInMs = param_finder._determineAggregationWindow(
+      timeScale=timeScaleInMs,
       cwtVar=cwtVar,
       thresh=0.2,
-      samplingInterval=samplingInterval,
+      samplingInterval=samplingIntervalInMs,
       numDataPts=40000
     )
-    aggregationTimeScale = aggregationTimeScale.item().total_seconds()
-    self.assertLessEqual(aggregationTimeScale, maxSamplingInterval)
-    self.assertGreater(aggregationTimeScale, samplingInterval.astype('float64'))
+
+    aggregationTimeScaleInS = aggregationTimeScaleInMs.item().total_seconds()
+    self.assertLessEqual(aggregationTimeScaleInS, maxSamplingInterval)
+    self.assertGreater(aggregationTimeScaleInS,
+                       samplingIntervalInS.astype('float64'))
 
     # if the numDataPts < MIN_ROW_AFTER_AGGREGATION, no aggregation should occur
-    aggregationTimeScale = param_finder._determineAggregationWindow(
-      timeScale=timeScale,
+    aggregationTimeScaleInMs = param_finder._determineAggregationWindow(
+      timeScale=timeScaleInMs,
       cwtVar=cwtVar,
       thresh=0.2,
-      samplingInterval=samplingInterval,
-      numDataPts=param_finder.MIN_ROW_AFTER_AGGREGATION-1
+      samplingInterval=samplingIntervalInMs,
+      numDataPts=param_finder.MIN_ROW_AFTER_AGGREGATION - 1
     )
-    aggregationTimeScale = aggregationTimeScale.item().total_seconds()
-    self.assertEqual(aggregationTimeScale, samplingInterval.astype('float64'))
+    aggregationTimeScaleInS = aggregationTimeScaleInMs.item().total_seconds()
+    self.assertEqual(aggregationTimeScaleInS,
+                     samplingIntervalInS.astype('float64'))
 
 
   def testFindParameters(self):
@@ -206,11 +199,7 @@ class ParamFinderTestCase(unittest.TestCase):
       random.seed(42)
       samples = []
       for i in xrange(2000):
-        if dataType == "transaction":
-          timestamp += datetime.timedelta(
-            seconds=random.randint(1, 2*timeStepSeconds))
-        else:
-          timestamp += timeStep
+        timestamp += timeStep
 
         if dataType == "flat":
           value = 10.0
@@ -218,15 +207,15 @@ class ParamFinderTestCase(unittest.TestCase):
           value = numpy.sin(2 * numpy.pi * (timeStep.seconds * i) / dayPeriod)
         elif dataType == "weekly":
           value = numpy.sin(2 * numpy.pi * (timeStep.seconds * i) / weekPeriod)
-        elif dataType == "transaction":
-          value = 10.0
+        elif dataType == "binaryTransaction":
+          value = 1 if int(i / 100) % 2 else 0
 
         samples.append((timestamp, value))
       return samples
 
     outputInfo = param_finder.findParameters(createTestData("flat", 300))
     self.assertGreater(outputInfo["aggInfo"]["windowSize"], 300)
-    self.assertEqual(outputInfo["aggInfo"]["func"], "mean")
+    self.assertEqual(outputInfo["aggInfo"]["func"], "sum")
     # Exclude timeOfDay and dayOfWeek encoder for flat line
     self.assertIsNone(outputInfo["modelInfo"]["modelConfig"]["modelParams"]
                       ["sensorParams"]["encoders"]["c0_timeOfDay"])
@@ -248,15 +237,18 @@ class ParamFinderTestCase(unittest.TestCase):
     # Use dayOfWeek but not timeOfDay encoder for dataSet with daily period
     self.assertIsNone(outputInfo["modelInfo"]["modelConfig"]["modelParams"]
                       ["sensorParams"]["encoders"]["c0_timeOfDay"])
-    self.assertIsNotNone(outputInfo["modelInfo"]["modelConfig"]["modelParams"]
-                         ["sensorParams"]["encoders"]["c0_dayOfWeek"])
+    self.assertIsNone(outputInfo["modelInfo"]["modelConfig"]["modelParams"]
+                      ["sensorParams"]["encoders"]["c0_dayOfWeek"])
 
-    outputInfo = param_finder.findParameters(createTestData("transaction", 300))
+    outputInfo = param_finder.findParameters(
+      createTestData("binaryTransaction", 300))
     self.assertGreaterEqual(outputInfo["aggInfo"]["windowSize"], 300)
     self.assertEqual(outputInfo["aggInfo"]["func"], "sum")
     # Use dayOfWeek but not timeOfDay encoder for dataSet with daily period
     self.assertIsNone(outputInfo["modelInfo"]["modelConfig"]["modelParams"]
                       ["sensorParams"]["encoders"]["c0_timeOfDay"])
+    # Check that dayOfWeek has been disabled event if the dataset has a daily 
+    # period.
     self.assertIsNone(outputInfo["modelInfo"]["modelConfig"]["modelParams"]
                       ["sensorParams"]["encoders"]["c0_dayOfWeek"])
 

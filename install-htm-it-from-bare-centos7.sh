@@ -47,7 +47,7 @@ set -o pipefail
 
 # Install base centos packages
 sudo yum install gcc gcc-c++ -y
-sudo rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+sudo rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-6.noarch.rpm
 sudo yum -y install python-pip python-devel libxml2-devel libxslt-devel
 
 # Install MySQL and Rabbit
@@ -68,7 +68,7 @@ git clone https://github.com/numenta/numenta-apps.git /opt/numenta/numenta-apps
 # Install HTM-IT
 cd /opt/numenta/numenta-apps/
 pip install paver==1.2.4 --user
-pip install uwsgi==2.0.4 --user
+pip install uwsgi==2.0.12 --user
 pip install agamotto==0.5.1 --user
 ./install-htm-it.sh /home/centos/.local
 

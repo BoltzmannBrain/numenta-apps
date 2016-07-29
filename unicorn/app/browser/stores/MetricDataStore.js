@@ -16,7 +16,7 @@
 // http://numenta.org/licenses/
 
 import BaseStore from 'fluxible/addons/BaseStore';
-import moment from 'moment';
+import {DATA_FIELD_INDEX} from '../lib/Constants';
 
 
 /**
@@ -56,17 +56,15 @@ export default class MetricDataStore extends BaseStore {
    *                          </code>
    */
   _handLoadData(payload) {
-    let metric, newData;
+    let metric;
     if (payload && 'metricId' in payload) {
-      // Convert timestamp to Date
-      newData = payload.data.map((row) => [moment(row[0]).toDate(), row[1]]);
       metric = this._metrics.get(payload._metrics);
       if (metric) {
         // Append payload data to existing metric
-        metric.push(...newData);
+        metric.push(...payload.data);
       } else {
         // Load New metric
-        this._metrics.set(payload.metricId, newData);
+        this._metrics.set(payload.metricId, payload.data);
       }
       this.emitChange();
     }
@@ -84,6 +82,25 @@ export default class MetricDataStore extends BaseStore {
   _handleHideModel(metricId) {
     this._handleUnloadData(metricId);
   }
+
+  /**
+   * Returns the date range stored for the given metric
+   * @param {string} metricId - Metric to get
+   * @return {Object} date range or null
+   * @property {number} from From timestamp
+   * @property {number} to  To timestamp
+   */
+  getTimeRange(metricId) {
+    let data = this._metrics.get(metricId);
+    if (data && data.length > 0) {
+      return {
+        from: data[0][DATA_FIELD_INDEX.DATA_INDEX_TIME],
+        to: data[data.length - 1][DATA_FIELD_INDEX.DATA_INDEX_TIME]
+      };
+    }
+    return null;
+  }
+
   /**
    * Get data for the given metric.
    * @param  {string} metricId - Metric to get data from

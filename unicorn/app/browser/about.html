@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <style type="text/css">
+        body {
+            background-color: #ECECEC;
+            font-family: sans-serif;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .medium {
+            font-size: 14px;
+        }
+
+        .small {
+            font-size: 11px;
+        }
+    </style>
+    <script type="text/javascript">
+        let electron = require('electron');
+    </script>
+</head>
+<body>
+<div style="margin-top: 15px; text-align:center;" class="small">
+    <img src="assets/images/icon-512.png" width="40"/>
+    <p class="medium bold" style="margin-top:10px;">HTM Studio</p>
+    <p>Version <span id="version"></span></p>
+    <p>Copyright © 2016 Numenta</p>
+    <p>All rights reserved.</p>
+    <p>
+        <a href=""
+           onclick="electron.shell.openExternal('http://numenta.com/htm-studio/?terms=1');">
+            Terms and Conditions
+        </a>
+    </p>
+</div>
+
+<script type="text/javascript">
+    var package_json = require('../package.json');
+    document.getElementById('version').textContent = package_json.version
+</script>
+</body>
+</html>

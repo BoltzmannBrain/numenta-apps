@@ -28,11 +28,14 @@ import {ACTIONS} from '../lib/Constants';
  * @return {Promise}
  */
 export default function (actionContext, modelId) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.DELETE_MODEL);
+
   return new Promise((resolve, reject) => {
     let database = actionContext.getDatabaseClient();
     // Delete model
     database.deleteModel(modelId, (error) => {
       if (error) {
+        actionContext.getGATracker().exception(ACTIONS.DELETE_MODEL_FAILED);
         actionContext.dispatch(ACTIONS.DELETE_MODEL_FAILED, {modelId, error});
         reject(error);
       } else {

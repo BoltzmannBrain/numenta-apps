@@ -20,7 +20,7 @@
 # http://numenta.org/licenses/
 # ----------------------------------------------------------------------
 
-# Install taurus.metric_collectors and its dependencies
+# Install taurus_metric_collectors and its dependencies
 # ARGS:
 # First position arg: installation prefix;
 #   e.g., Linux: /opt/numenta/anaconda
@@ -36,4 +36,4 @@ function install {
 
 install nta.utils $1
 install infrastructure $1
-install taurus.metric_collectors $1
+install taurus_metric_collectors $1

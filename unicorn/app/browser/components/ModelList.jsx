@@ -19,6 +19,7 @@ import connectToStores from 'fluxible-addons-react/connectToStores';
 import IconCheckbox from 'material-ui/lib/svg-icons/toggle/check-box';
 import Paper from 'material-ui/lib/paper';
 import React from 'react';
+import ReactDOM from 'react-dom';
 
 import Model from './Model';
 import ModelStore from '../stores/ModelStore';
@@ -28,7 +29,8 @@ import ModelStore from '../stores/ModelStore';
  * List of Model Charts, React component
  */
 @connectToStores([ModelStore], (context) => ({
-  models: context.getStore(ModelStore).getModels()
+  models: context.getStore(ModelStore).getModels(),
+  visibleModelStack: context.getStore(ModelStore).getVisibleModelStack()
 }))
 export default class ModelList extends React.Component {
 
@@ -84,10 +86,8 @@ export default class ModelList extends React.Component {
   }
 
   _renderModels() {
-    let visibleModels = this.props.models.find((model) => model.visible);
     let checkboxColor, emptyMessage;
-
-    if (! visibleModels) {
+    if (!this.props.visibleModelStack) {
       emptyMessage = this._config.get('heading:chart:empty');
       checkboxColor = this.context.muiTheme.rawTheme.palette.primary1Color;
 
@@ -99,8 +99,7 @@ export default class ModelList extends React.Component {
       );
     }
 
-    return this.props.models
-      .filter((model) => model.visible)
+    return this.props.visibleModelStack
       .map((model) => {
         return (
           <Model key={model.modelId} modelId={model.modelId} />
@@ -108,9 +107,54 @@ export default class ModelList extends React.Component {
       });
   }
 
+  /**
+   * Work around a Chromium bug.
+   *
+   * Chromium "hibernates" each canvas when the page is in the
+   * background. On Mac OS X with a "retina" display, it often fails
+   * to unhibernate, leaving a blank canvas.
+   *
+   * This won't be necessary with the next version of Electron.
+   * FIXME: https://jira.numenta.com/browse/UNI-484
+   *
+   * @see https://bugs.chromium.org/p/chromium/issues/detail?id=588434
+   */
+  _onVisibilityChange() {
+    if (!document.hidden) {
+      let element = ReactDOM.findDOMNode(this.refs['root']);
+      let canvases = element.getElementsByTagName('canvas');
+
+      for (let i = 0; i < canvases.length; i++) {
+        let canvas = canvases[i];
+        let ctx = canvas.getContext('2d');
+        let imagedata = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        canvas.height += 1;
+        canvas.height -= 1;
+
+        ctx.putImageData(imagedata, 0, 0);
+
+        // We caused the transform to reset. The Dygraphs "retina"
+        // display handling assumes the transform won't change.
+        let scale = canvas.height / canvas.offsetHeight;
+        ctx.transform(scale, 0, 0, scale, 0, 0);
+      }
+    }
+  }
+
+  componentDidMount() {
+    this._onVisibilityChangeWrapper = this._onVisibilityChange.bind(this);
+    document.addEventListener('visibilitychange',
+                              this._onVisibilityChangeWrapper);
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener(this._onVisibilityChangeWrapper);
+  }
+
   render() {
     return (
-      <Paper style={this._styles.root} zDepth={this.props.zDepth}>
+      <Paper style={this._styles.root} zDepth={this.props.zDepth} ref="root">
         {this._renderModels()}
       </Paper>
     );

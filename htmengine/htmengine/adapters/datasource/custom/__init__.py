@@ -38,6 +38,7 @@ from htmengine.repository.queries import MetricStatus
 from htmengine.runtime import scalar_metric_utils
 import htmengine.utils
 import htmengine.model_swapper.utils as model_swapper_utils
+from nupic.data import fieldmeta
 
 
 
@@ -189,7 +190,8 @@ class _CustomDatasourceAdapter(DatasourceAdapterIface):
     custom metrics.
 
     Start the model if possible: this will happen if modelParams includes both
-    "min" and "max" or there is enough data to estimate them.
+    "min" and "max" or there is enough data to estimate them. Alternatively,
+    users may pass in a full set of model parameters.
 
     :param modelSpec: model specification for HTM model; per
         ``model_spec_schema.json`` with the ``metricSpec`` property per
@@ -256,7 +258,6 @@ class _CustomDatasourceAdapter(DatasourceAdapterIface):
       already being monitored
     """
     metricSpec = modelSpec["metricSpec"]
-
     with self.connectionFactory() as conn:
       if "uid" in metricSpec:
         # Via metric ID
@@ -281,6 +282,13 @@ class _CustomDatasourceAdapter(DatasourceAdapterIface):
           "Neither uid nor metric name present in metricSpec; modelSpec=%r"
           % (modelSpec,))
 
+    if "completeModelParams" in modelSpec:
+      # Attempt to build swarm params from complete model params if present
+      swarmParams = (
+        scalar_metric_utils.generateSwarmParamsFromCompleteModelParams(
+          modelSpec))
+    else:
+      # Generate swarm params from specified metric min and max or estimate them
       modelParams = modelSpec.get("modelParams", dict())
       minVal = modelParams.get("min")
       maxVal = modelParams.get("max")
@@ -290,28 +298,28 @@ class _CustomDatasourceAdapter(DatasourceAdapterIface):
           "min and max params must both be None or non-None; metric=%s; "
           "modelSpec=%r" % (metricId, modelSpec,))
 
-    # Start monitoring
-    if minVal is None or maxVal is None:
-      minVal = maxVal = None
+      # Start monitoring
+      if minVal is None or maxVal is None:
+        minVal = maxVal = None
 
-      with self.connectionFactory() as conn:
-        numDataRows = repository.retryOnTransientErrors(
-          repository.getMetricDataCount)(conn, metricId)
+        with self.connectionFactory() as conn:
+          numDataRows = repository.retryOnTransientErrors(
+            repository.getMetricDataCount)(conn, metricId)
 
-      if numDataRows >= scalar_metric_utils.MODEL_CREATION_RECORD_THRESHOLD:
-        try:
-          stats = self._getMetricStatistics(metricId)
-          self._log.info("monitorMetric: trigger numDataRows=%d, stats=%s",
-                         numDataRows, stats)
-          minVal = stats["min"]
-          maxVal = stats["max"]
-        except app_exceptions.MetricStatisticsNotReadyError:
-          pass
+        if numDataRows >= scalar_metric_utils.MODEL_CREATION_RECORD_THRESHOLD:
+          try:
+            stats = self._getMetricStatistics(metricId)
+            self._log.info("monitorMetric: trigger numDataRows=%d, stats=%s",
+                           numDataRows, stats)
+            minVal = stats["min"]
+            maxVal = stats["max"]
+          except app_exceptions.MetricStatisticsNotReadyError:
+            pass
 
-    stats = {"min": minVal, "max": maxVal, "minResolution": minResolution}
-    self._log.debug("monitorMetric: metric=%s, stats=%r", metricId, stats)
+      stats = {"min": minVal, "max": maxVal, "minResolution": minResolution}
+      self._log.debug("monitorMetric: metric=%s, stats=%r", metricId, stats)
 
-    swarmParams = scalar_metric_utils.generateSwarmParams(stats)
+      swarmParams = scalar_metric_utils.generateSwarmParams(stats)
 
     self._startMonitoringWithRetries(metricId, modelSpec, swarmParams)
 

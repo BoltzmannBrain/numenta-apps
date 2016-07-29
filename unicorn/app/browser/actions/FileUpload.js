@@ -26,10 +26,13 @@ import ListMetricsAction from '../actions/ListMetrics';
  * @return {Promise}  Promise
  */
 export default function (actionContext, filename) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.UPLOADED_FILE);
+
   return new Promise((resolve, reject) => {
     let db = actionContext.getDatabaseClient();
     db.uploadFile(filename, (error, file) => {
       if (error) {
+        actionContext.getGATracker().exception(ACTIONS.UPLOADED_FILE_FAILED);
         actionContext.dispatch(ACTIONS.UPLOADED_FILE_FAILED, error);
         reject(error);
       } else {

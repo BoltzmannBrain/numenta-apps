@@ -25,5 +25,7 @@ import {ACTIONS} from '../lib/Constants';
  * @emits {HIDE_FILE_DETAILS}
  */
 export default function (actionContext) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.HIDE_FILE_DETAILS);
+
   actionContext.dispatch(ACTIONS.HIDE_FILE_DETAILS);
 }

@@ -1,7 +1,7 @@
 ﻿# See README.md for instructions about prerequisites and how to run this script.
 
 param (
-    [string]$nupic_version = "0.3.6"
+    [string]$nupic_version = "0.5.0"
 )
 
 # Make the script fail on cmlets errors
@@ -54,23 +54,20 @@ Write-Host $test_nupic_import
 Invoke-Expression $test_nupic_bindings_import
 Invoke-Expression $test_nupic_import
 
-# PowerShell Community Extensions (PSCX): Write-Tar, Write-GZip
-if (Get-Module -ListAvailable -Name Pscx) {
-    Import-Module Pscx
-} else {
-    Write-Host "Installing PowerShell Community Extensions (PSCX)"
-    Invoke-WebRequest -Uri https://pscx.codeplex.com/downloads/get/923562 -OutFile "$script_path/pscx.msi"
-    Start-Process -Wait -FilePath msiexec -ArgumentList /i, "$script_path\pscx.msi", /qn, /passive, ALLUSERS=0
-    Remove-Item -Force -ErrorAction Ignore "$script_path\pscx.msi"
-    $env:psmodulepath = $env:psmodulepath + ";${env:ProgramFiles(x86)}\PowerShell Community Extensions\Pscx3"
-    Import-Module Pscx
-}
-
 Write-Host "==> Packaging portable_python artifact ..."
 Copy-Item $script_path\index.js -destination $script_path/$portable_python_dir
 Copy-Item $script_path\package.json -destination $script_path/$portable_python_dir
-Write-Tar -path $script_path/$portable_python_dir -output $script_path/$portable_python_dir.tar
-Write-Gzip -level 9 $script_path/$portable_python_dir.tar
+
+# Tar/Gzip package using python
+# NOTE: Native "Write-Tar" truncates files and creates invalid tar files.
+$tar_czf = @"
+$portable_python_dir\python.exe -c 'import tarfile
+with tarfile.open(\"portable_python.tar.gz\", \"w:gz\") as tar:
+  tar.add(\"$portable_python_dir\")
+'
+"@
+Write-Host $tar_czf
+Invoke-Expression $tar_czf
 
 Write-Host "==> Cleaning up ..."
 Remove-Item -Force -ErrorAction Ignore $script_path/$portable_python_dir.tar

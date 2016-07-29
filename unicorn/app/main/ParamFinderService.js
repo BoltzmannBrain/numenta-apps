@@ -19,6 +19,7 @@ import childProcess from 'child_process';
 import EventEmitter from 'events';
 import getPortablePython from './PortablePython';
 import UserError from './UserError';
+import log from './Logger'
 
 const PYTHON_EXECUTABLE = getPortablePython();
 
@@ -84,14 +85,19 @@ export class ParamFinderService extends EventEmitter {
    */
   createParamFinder(metricId, inputOpt) {
     if (this.availableSlots(metricId) <= 0) {
-      throw new MaximumConcurrencyError();
+      let err = new MaximumConcurrencyError();
+      log.error({err, metricId, inputOpt});
+      throw err;
     }
 
     if (this._paramFinders.has(metricId)) {
-      throw new DuplicateIDError();
+      let err = new DuplicateIDError();
+      log.error({err, metricId, inputOpt});
+      throw err;
     }
 
     const params = [
+      '-E',
       '-m', 'unicorn_backend.param_finder_runner',
       '--input', JSON.stringify(inputOpt)
     ];
@@ -99,12 +105,14 @@ export class ParamFinderService extends EventEmitter {
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
 
-    child.on('error', (error) => {
-      this.emit(metricId, 'error', error);
+    child.on('error', (err) => {
+      log.error({err, metricId, inputOpt});
+      this.emit(metricId, 'error', err);
     });
 
-    child.stderr.on('data', (error) => {
-      this.emit(metricId, 'error', error);
+    child.stderr.on('data', (err) => {
+      log.error({err, metricId, inputOpt});
+      this.emit(metricId, 'error', err);
     });
 
     child.stdout.on('data', (data) => {
@@ -112,6 +120,9 @@ export class ParamFinderService extends EventEmitter {
     });
 
     child.once('close', (code) => {
+      if (code) {
+        log.error({metricId, inputOpt, event:'close', code});
+      }
       this._paramFinders.delete(metricId);
       this.emit(metricId, 'close', code);
     });
@@ -135,7 +146,9 @@ export class ParamFinderService extends EventEmitter {
    */
   removeParamFinder(metricId) {
     if (!this._paramFinders.has(metricId)) {
-      throw new ParamFinderNotFoundError();
+      let err = new ParamFinderNotFoundError();
+      log.error({err, metricId});
+      throw err;
     }
 
     const paramFinder = this._paramFinders.get(metricId);

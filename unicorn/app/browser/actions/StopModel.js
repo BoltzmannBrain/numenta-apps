@@ -25,6 +25,8 @@ import {ACTIONS} from '../lib/Constants';
  * @emits {STOP_MODEL}
  */
 export default function (actionContext, modelId) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.STOP_MODEL);
+
   let modelClient = actionContext.getModelClient();
   modelClient.removeModel(modelId);
   actionContext.dispatch(ACTIONS.STOP_MODEL, modelId);

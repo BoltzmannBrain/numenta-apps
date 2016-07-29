@@ -38,17 +38,12 @@ import dateutil.tz
 
 from nupic.frameworks.opf.common_models.cluster_params import (
   getScalarMetricWithTimeOfDayAnomalyParams)
-from nta.utils.logging_support_raw import LoggingSupport
-from nta.utils import test_utils
+from unicorn_backend.utils import test_utils
 
 
 
 _LOGGER = logging.getLogger("unicorn_model_runner_test")
-
-
-
-def setUpModule():
-  LoggingSupport.initTestApp()
+_LOGGER.addHandler(logging.StreamHandler())
 
 
 
@@ -78,7 +73,7 @@ class ModelRunnerTestCase(unittest.TestCase):
       aggregation
     :returns: the started subprocess.Popen object wrapped in
       ManagedSubprocessTerminator
-    :rtype: nta.utils.test_utils.ManagedSubprocessTerminator
+    :rtype: unicorn_backend.utils.test_utils.ManagedSubprocessTerminator
     """
     args = [
       sys.executable,
@@ -298,7 +293,37 @@ class ModelRunnerTestCase(unittest.TestCase):
       self.assertGreater(len(errorInfo["diagnosticInfo"]), 0)
 
 
+  def testModelRunnerDoesNotFailWithEmptyInputRecord(self):
+
+    modelId = uuid.uuid1().hex
+
+    inputOpt = dict(
+      rowOffset=0,
+      timestampIndex=0,
+      valueIndex=1,
+      datetimeFormat="%Y-%m-%dT%H:%M:%S.%f"
+    )
+
+    modelOpt = dict(
+      modelId=modelId,
+      modelConfig=self.modelConfig,
+      inferenceArgs=self.inferenceArgs,
+      timestampFieldName=self.timestampFieldName,
+      valueFieldName=self.valueFieldName
+    )
+
+    aggOpt = None
+
+    with self._startModelRunnerSubprocess(inputOpt=inputOpt,
+                                          modelOpt=modelOpt,
+                                          aggOpt=aggOpt) as mrProcess:
+
+      mrProcess.communicate(input="[]\n")
+      self.assertEqual(mrProcess.returncode, 0)
+
+
   def testModelRunnerFailsWithInvalidInputRecord(self):
+
     modelId = uuid.uuid1().hex
 
     inputOpt = dict(
@@ -322,7 +347,7 @@ class ModelRunnerTestCase(unittest.TestCase):
                                           modelOpt=modelOpt,
                                           aggOpt=aggOpt) as mrProcess:
       # Wait for it to terminate with error
-      stdoutData, stderrData = mrProcess.communicate(input="[]\n")
+      stdoutData, stderrData = mrProcess.communicate(input="['a','b','c']\n")
 
       self.assertEqual(mrProcess.returncode, 1)
 

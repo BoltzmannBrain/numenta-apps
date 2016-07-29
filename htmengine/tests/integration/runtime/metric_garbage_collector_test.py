@@ -29,7 +29,6 @@ import uuid
 from nta.utils.logging_support_raw import LoggingSupport
 
 
-#from taurus.metric_collectors import collectorsdb
 import htmengine
 from htmengine.test_utils import repository_test_utils
 import htmengine.repository

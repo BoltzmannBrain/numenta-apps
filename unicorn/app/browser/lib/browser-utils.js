@@ -44,6 +44,9 @@ export function formatDisplayValue(value) {
  * @returns {String} - String for Color to use
  */
 export function mapAnomalyColor(anomaly) {
+  if (anomaly === null) {
+    return muiTheme.palette.disabledColor;
+  }
   if (anomaly >= ANOMALY_RED_VALUE) {
     return muiTheme.palette.dangerColor;
   } else if (anomaly >= ANOMALY_YELLOW_VALUE) {

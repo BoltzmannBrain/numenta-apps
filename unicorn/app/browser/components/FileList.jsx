@@ -27,7 +27,7 @@ import IconButton from 'material-ui/lib/icon-button';
 import IconClose from 'material-ui/lib/svg-icons/hardware/keyboard-arrow-down';
 import IconMenu from 'material-ui/lib/menus/icon-menu';
 import IconMore from 'material-ui/lib/svg-icons/navigation/more-vert';
-import IconOpen from 'material-ui/lib/svg-icons/hardware/keyboard-arrow-up';
+import IconOpen from 'material-ui/lib/svg-icons/hardware/keyboard-arrow-right';
 import IconStatus from 'material-ui/lib/svg-icons/image/lens';
 import List from 'material-ui/lib/lists/list';
 import ListItem from 'material-ui/lib/lists/list-item';
@@ -42,12 +42,12 @@ import FileStore from '../stores/FileStore';
 import HideModelAction from '../actions/HideModel';
 import MetricStore from '../stores/MetricStore';
 import ModelStore from '../stores/ModelStore';
+import SetFileExpandedStateAction from '../actions/SetFileExpandedState';
 import ShowFileDetailsAction from '../actions/ShowFileDetails';
 import ShowModelAction from '../actions/ShowModel';
 
 // Using module from 'main' process, it may infer use of `remote` IPC calls
 import {generateMetricId} from '../../main/generateId';
-
 
 /**
  * Component used to display a list of files
@@ -70,19 +70,12 @@ export default class FileList extends React.Component {
   constructor(props, context) {
     super(props, context);
     let muiTheme = this.context.muiTheme;
-    let showNested = {};
 
     this._config = this.context.getConfigClient();
 
-    // prep visibility toggle nested file contents
-    props.files.forEach((file) => {
-      showNested[file.uid] = true;
-    });
-
     // init state
     this.state = Object.assign({
-      deleteConfirmDialog: null,
-      showNested
+      deleteConfirmDialog: null
     }, props);
 
     this._styles = {
@@ -184,20 +177,18 @@ export default class FileList extends React.Component {
   }
 
   _handleFileToggle(fileId, event) {
-    let ref = this.refs[`file-toggle-${fileId}`];
-    let showNested = this.state.showNested;
-    let nesting = true;
-
-    if (showNested[fileId]) {
-      nesting = false;
-    }
-
-    // custom icon toggle
-    showNested[fileId] = nesting;
-    this.setState({showNested});
-
     // piggyback on default MaterialUI nested show/hide
+    let ref = this.refs[`file-toggle-${fileId}`];
     ref.setState({open: !ref.state.open});
+
+    this.props.files.some((file) => {
+      if (file.uid === fileId) {
+        this.context.executeAction(SetFileExpandedStateAction, {
+          filename: file.filename, expanded: !file.expanded
+        });
+        return true;
+      }
+    });
   }
 
   _handleFileContextMenu(file, event, action) {
@@ -327,8 +318,6 @@ export default class FileList extends React.Component {
   }
 
   _renderFiles(filetype) {
-    let isInitiallyOpen = filetype === 'uploaded';
-
     return this.props.files.map((file) => {
       if (file.type === filetype) {
         let color = this.context.muiTheme.rawTheme.palette.primary1Color;
@@ -355,10 +344,10 @@ export default class FileList extends React.Component {
         let leftIconButton, toggleIcon;
 
         // choose file visibility toggle icon
-        if (this.state.showNested[fileId]) {
-          toggleIcon = (<IconOpen color={color} />);
-        } else {
+        if (file.expanded) {
           toggleIcon = (<IconClose color={color} />);
+        } else {
+          toggleIcon = (<IconOpen color={color} />);
         }
         leftIconButton = (
           <IconButton style={this._styles.fileToggle}>
@@ -368,7 +357,7 @@ export default class FileList extends React.Component {
 
         return (
           <ListItem
-            initiallyOpen={isInitiallyOpen}
+            initiallyOpen={file.expanded}
             key={file.name}
             onTouchTap={this._handleFileToggle.bind(this, fileId)}
             leftIcon={leftIconButton}

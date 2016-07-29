@@ -1,6 +1,6 @@
 # ----------------------------------------------------------------------
 # Numenta Platform for Intelligent Computing (NuPIC)
-# Copyright (C) 2015, Numenta, Inc.  Unless you have purchased from
+# Copyright (C) 2015-2016, Numenta, Inc.  Unless you have purchased from
 # Numenta, Inc. a separate commercial license for this software code, the
 # following terms and conditions apply:
 #
@@ -60,13 +60,13 @@ def upgrade():
 
   op.alter_column("annotation", "created",
                   type_=sa.DATETIME,
-                  existing_nullable=False,
-                  existing_server_default=sa.text("'0000-00-00 00:00:00'"))
+                  server_default=None,
+                  existing_nullable=False)
 
   op.alter_column("instance_status_history", "timestamp",
                   type_=sa.DATETIME,
-                  existing_nullable=False,
-                  existing_server_default=sa.text("'0000-00-00 00:00:00'"))
+                  server_default=None,
+                  existing_nullable=False)
 
   op.alter_column("metric", "last_timestamp",
                   type_=sa.DATETIME,

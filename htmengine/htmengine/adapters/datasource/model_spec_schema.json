@@ -14,7 +14,7 @@
       "type": "object"
     },
     "modelParams": {
-      "description" : "Model-creation parameter overrides",
+      "description" : "Model creation parameter overrides for encoder min, max, and, minResolution only.",
       "required": false,
       "type": "object",
       "additionalProperties":false,
@@ -30,6 +30,34 @@
         "minResolution": {
           "required": false,
           "type": "number"
+        }
+      }
+    },
+    "completeModelParams": {
+      "description": "Complete set of model params for a valid model; namely, one with timestamp and single scalar value metric as well as 'TemporalAnomaly' inference type.",
+      "required": false,
+      "type": "object",
+      "additionalProperties":false,
+      "properties": {
+        "modelConfig": {
+          "description": "Complete model config to be passed to nupic.frameworks.opf.modelfactory.ModelFactory.create().",
+          "type": "object",
+          "required": true
+        },
+        "inferenceArgs": {
+          "description": "OPF Model Inference parameters (JSON object) for passing to the resulting model's `enableInference()` method as the `inferenceArgs` parameter.",
+          "type": "object",
+          "required": true
+        },
+        "timestampFieldName": {
+          "description": "The name of the field in modelParams corresponding to the metric timestamp; for example, this is c0 in the model params returned by nupic.frameworks.opf.common_models.cluster_params.getScalarMetricWithTimeOfDayAnomalyParams().",
+          "type": "string",
+          "required": true
+        },
+        "valueFieldName": {
+          "description": "The name of the field in modelParams corresponding to the metric value; for example, this is c1 in the model params returned by nupic.frameworks.opf.common_models.cluster_params.getScalarMetricWithTimeOfDayAnomalyParams().",
+          "type": "string",
+          "required": true
         }
       }
     }

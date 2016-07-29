@@ -27,5 +27,6 @@ import {ACTIONS} from '../lib/Constants';
  * @see http://fluxible.io/api/actions.html#api-code-actions-code-
  */
 export default function (actionContext, modelId) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.HIDE_MODEL);
   actionContext.dispatch(ACTIONS.HIDE_MODEL, modelId);
 }

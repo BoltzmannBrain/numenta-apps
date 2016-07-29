@@ -49,13 +49,28 @@ export default class LeftNav extends React.Component {
     super(props, context);
 
     let muiTheme = this.context.muiTheme;
-    this._style = {
-      backgroundColor: muiTheme.leftNav.color,
-      height: '100%',
-      left: 0,
-      position: 'fixed',
-      top: 0,
-      width: muiTheme.leftNav.width
+    this._logoHeight = muiTheme.appBar.height * 1.2;
+    this._styles = {
+      root: {
+        backgroundColor: muiTheme.leftNav.color,
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: muiTheme.leftNav.width
+      },
+      // Use another 'fixed' element rather than an 'absolute' element to dodge
+      // a Chromium bug that shifts the scrollbar to make room for a box shadow.
+      // https://bugs.chromium.org/p/chromium/issues/detail?id=582358
+      childrenContainer: {
+        position: 'fixed',
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        top: this._logoHeight,
+        bottom: 0,
+        left: 0,
+        width: muiTheme.leftNav.width
+      }
     };
   }
 
@@ -65,9 +80,11 @@ export default class LeftNav extends React.Component {
    */
   render() {
     return (
-      <Paper style={this._style} zDepth={this.props.zDepth}>
-        <Logo />
-        {this.props.children}
+      <Paper style={this._styles.root} zDepth={this.props.zDepth}>
+        <Logo height={this._logoHeight} />
+        <div style={this._styles.childrenContainer}>
+          {this.props.children}
+        </div>
       </Paper>
     );
   }

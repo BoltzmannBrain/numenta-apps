@@ -43,6 +43,7 @@ export default class ModelStore extends BaseStore {
    * @listens {ADD_MODEL}
    * @listens {DELETE_MODEL}
    * @listens {LIST_MODELS}
+   * @listens {CLOSE_MODEL}
    * @listens {STOP_MODEL}
    * @listens {START_MODEL}
    * @listens {SHOW_MODEL}
@@ -60,6 +61,7 @@ export default class ModelStore extends BaseStore {
       DELETE_MODEL: '_deleteModel',
       LIST_MODELS: '_addModels',
       STOP_MODEL: '_stopModel',
+      CLOSE_MODEL: '_stopModel',
       START_MODEL: '_startModel',
       SHOW_MODEL: '_showModel',
       HIDE_MODEL: '_hideModel',
@@ -75,6 +77,7 @@ export default class ModelStore extends BaseStore {
   constructor(dispatcher) {
     super(dispatcher);
     this._models = new Map();
+    this._visibleModelStack = [];
   }
 
   /**
@@ -108,6 +111,11 @@ export default class ModelStore extends BaseStore {
    * @param {string} modelId - Model to delete
    */
   _deleteModel(modelId) {
+    let model = this._models.get(modelId);
+    let index = this._visibleModelStack.indexOf(model);
+    if (index !== -1) {
+      this._visibleModelStack.splice(index, 1);
+    }
     this._models.delete(modelId);
     this.emitChange();
   }
@@ -120,6 +128,10 @@ export default class ModelStore extends BaseStore {
     let model = this._models.get(modelId);
     if (model) {
       model.visible = false;
+      let index = this._visibleModelStack.indexOf(model);
+      if (index !== -1) {
+        this._visibleModelStack.splice(index, 1);
+      }
       this.emitChange();
     }
   }
@@ -130,8 +142,12 @@ export default class ModelStore extends BaseStore {
    */
   _showModel(modelId) {
     let model = this._models.get(modelId);
-    if (model) {
+    if (model && !model.visible) {
       model.visible = true;
+
+      // Make sure multiple SHOW_MODEL events don't cause the model to get added
+      // to this list twice. Check whether the model is visible first.
+      this._visibleModelStack.unshift(model);
       this.emitChange();
     }
   }
@@ -201,5 +217,14 @@ export default class ModelStore extends BaseStore {
    */
   getModels() {
     return Array.from(this._models.values());
+  }
+
+  /**
+   * Returns a list of all models currently being displayed
+   * @return {ModelStore.visibleModelStack[]} All models beinng displayed
+   *         in the order they were added.
+   */
+  getVisibleModelStack() {
+    return this._visibleModelStack;
   }
 }

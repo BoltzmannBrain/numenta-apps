@@ -15,16 +15,21 @@
 //
 // http://numenta.org/licenses/
 
+// Export common constants
+import * as CommonConstants from '../../common/Constants';
+Object.assign(module.exports, CommonConstants);
 
 /**
  * Fluxible Action keys
  *
  * - Application
  *  - START_APPLICATION: {@StartApplication}
+ *  - STOP_APPLICATION
  *
  * - File
  *  - DELETE_FILE: {@link DeleteFile}
  *  - LIST_FILES: {@link ListFiles}
+ *  - SET_FILE_EXPANDED_STATE: {@link SetFileExpandedState}
  *  - UPLOADED_FILE: {@link FileUpload}
  *  - UPDATE_FILE: {@link FileUpdate}
  *  - VALIDATE_FILE: {@link FileValidate}
@@ -35,10 +40,12 @@
  *  - UPDATE_FILE_FAILED
  *  - DELETE_FILE_FAILED
  *  - VALIDATE_FILE_FAILED
+ *  - VALIDATE_FILE_WARNING
  *
  * - Metric
  *  - LIST_METRICS: {@link ListMetrics}
  *  - LIST_METRICS_FAILURE
+ *  - UPDATE_METRIC: {@link UpdateMetric}
  *
  * - Metric Data
  *  - LOAD_METRIC_DATA: {@link LoadMetricData}
@@ -51,29 +58,35 @@
  *  - DELETE_MODEL: {@link DeleteModel}
  *  - START_MODEL: {@link StartModel}
  *  - STOP_MODEL: {@link StopModel}
+ *  - CLOSE_MODEL: {@link CloseModel}
  *  - SHOW_MODEL: {@link ShowModel}
  *  - HIDE_MODEL: {@link HideModel}
- *  - EXPORT_MODEL_RESULTS: {@link ExportModelResults}
  *  - ADD_MODEL_FAILED
  *  - LIST_MODELS_FAILURE
  *  - DELETE_MODEL_FAILED
  *  - START_MODEL_FAILED
  *  - STOP_MODEL_FAILED
- *  - EXPORT_MODEL_RESULTS_FAILED: {@link ExportModelResults}
  *  - UNKNOWN_MODEL_FAILURE
  *
  * - Model Data
+ *  - PREPARE_FOR_MODEL_RESULTS
+ *  - NOTIFY_NEW_MODEL_RESULTS
  *  - RECEIVE_MODEL_DATA: {@link ReceiveModelData}
  *
  * - Param Finder
  *   - START_PARAM_FINDER: {@link StartParamFinder}
  *   - STOP_PARAM_FINDER: {@link StopParamFinder}
+ *   - CLOSE_PARAM_FINDER: {@link CloseParamFinder}
  *   - START_PARAM_FINDER_FAILED {@link ParamFinderError}
  *   - STOP_PARAM_FINDER_FAILED {@link ParamFinderError}
  *   - UNKNOWN_PARAM_FINDER_FAILURE {@link ParamFinderError}
  *
  * - Param Finder Data
  *   - RECEIVE_PARAM_FINDER_DATA: {@link ReceiveParamFinderData}
+ *
+ * - UI Advanced Settings
+ *  - TOGGLE_AGGREGATE_DATA: {@link ToggleAggregateData}
+ *  - OVERRIDE_PARAM_FINDER_RESULTS: {@link OverrideParamFinderResults}
  *
  * - UI File Detail Menu
  *  - SHOW_FILE_DETAILS: {@link ShowFileDetails}
@@ -89,10 +102,12 @@
 export const ACTIONS = Object.freeze({
   // Application
   START_APPLICATION: 'START_APPLICATION',
+  STOP_APPLICATION: 'STOP_APPLICATION',
 
   // File
   DELETE_FILE: 'DELETE_FILE',
   LIST_FILES: 'LIST_FILES',
+  SET_FILE_EXPANDED_STATE: 'SET_FILE_EXPANDED_STATE',
   UPLOADED_FILE: 'UPLOADED_FILE',
   UPDATE_FILE: 'UPDATE_FILE',
   VALIDATE_FILE: 'VALIDATE_FILE',
@@ -101,10 +116,12 @@ export const ACTIONS = Object.freeze({
   UPLOADED_FILE_FAILED: 'UPLOADED_FILE_FAILED',
   UPDATE_FILE_FAILED: 'UPDATE_FILE_FAILED',
   VALIDATE_FILE_FAILED: 'VALIDATE_FILE_FAILED',
+  VALIDATE_FILE_WARNING: 'VALIDATE_FILE_WARNING',
 
   // Metric
   LIST_METRICS: 'LIST_METRICS',
   LIST_METRICS_FAILURE: 'LIST_METRICS_FAILURE',
+  UPDATE_METRIC: 'UPDATE_METRIC',
 
   // Metric Data
   LOAD_METRIC_DATA: 'LOAD_METRIC_DATA',
@@ -117,18 +134,19 @@ export const ACTIONS = Object.freeze({
   LIST_MODELS: 'LIST_MODELS',
   START_MODEL: 'START_MODEL',
   STOP_MODEL: 'STOP_MODEL',
+  CLOSE_MODEL: 'CLOSE_MODEL',
   SHOW_MODEL: 'SHOW_MODEL',
   HIDE_MODEL: 'HIDE_MODEL',
-  EXPORT_MODEL_RESULTS: 'EXPORT_MODEL_RESULTS',
   ADD_MODEL_FAILED: 'ADD_MODEL_FAILED',
   DELETE_MODEL_FAILED: 'DELETE_MODEL_FAILED',
   LIST_MODELS_FAILURE: 'LIST_MODELS_FAILURE',
   START_MODEL_FAILED: 'START_MODEL_FAILED',
   STOP_MODEL_FAILED: 'STOP_MODEL_FAILED',
-  EXPORT_MODEL_RESULTS_FAILED: 'EXPORT_MODEL_RESULTS_FAILED',
   UNKNOWN_MODEL_FAILURE: 'UNKNOWN_MODEL_FAILURE',
 
   // Model Data
+  PREPARE_FOR_MODEL_RESULTS: 'PREPARE_FOR_MODEL_RESULTS',
+  NOTIFY_NEW_MODEL_RESULTS: 'NOTIFY_NEW_MODEL_RESULTS',
   RECEIVE_MODEL_DATA: 'RECEIVE_MODEL_DATA',
   LOAD_MODEL_DATA: 'LOAD_MODEL_DATA',
   LOAD_MODEL_DATA_FAILED: 'LOAD_MODEL_DATA_FAILED',
@@ -136,12 +154,17 @@ export const ACTIONS = Object.freeze({
   // Param Finder
   START_PARAM_FINDER: 'START_PARAM_FINDER',
   STOP_PARAM_FINDER: 'STOP_PARAM_FINDER',
+  CLOSE_PARAM_FINDER: 'CLOSE_PARAM_FINDER',
   START_PARAM_FINDER_FAILED: 'START_PARAM_FINDER_FAILED',
   STOP_PARAM_FINDER_FAILED: 'STOP_PARAM_FINDER_FAILED',
   UNKNOWN_PARAM_FINDER_FAILURE: 'UNKNOWN_PARAM_FINDER_FAILURE',
 
   // Param Finder Data
   RECEIVE_PARAM_FINDER_DATA: 'RECEIVE_PARAM_FINDER_DATA',
+
+  // UI Advanced Settings
+  TOGGLE_AGGREGATE_DATA: 'TOGGLE_AGGREGATE_DATA',
+  OVERRIDE_PARAM_FINDER_RESULTS: 'OVERRIDE_PARAM_FINDER_RESULTS',
 
   // UI File Detail Menu
   SHOW_FILE_DETAILS: 'SHOW_FILE_DETAILS',
@@ -157,12 +180,12 @@ export const ACTIONS = Object.freeze({
 
 
 /**
- * Database Errors. Use to check database error names returned by callbacks.
- * 	- NOT_FOUND: Record not found
- * @type {string}
+ * Component Google Analytics events
  */
-export const DATABASE_ERRORS = Object.freeze({
-  NOT_FOUND: 'NotFoundError'
+export const COMPONENT_GA_EVENTS = Object.freeze({
+  // Model
+  EXPORT_MODEL_RESULTS: 'EXPORT_MODEL_RESULTS',
+  EXPORT_MODEL_RESULTS_FAILED: 'EXPORT_MODEL_RESULTS_FAILED'
 });
 
 
@@ -176,16 +199,9 @@ export const DATA_FIELD_INDEX = Object.freeze({
   DATA_INDEX_ANOMALY: 2
 });
 
-/**
- * Floor value for 'red' anomalies
- * @type {Number}
- */
-// See NAB threshold:
-// https://github.com/numenta/NAB/blob/master/config/thresholds.json#L27
-export const ANOMALY_RED_VALUE = 0.5125976562500002;
 
 /**
- * Floor value for 'yellow' anomalies
+ * Anomaly bar width in pixels
  * @type {Number}
  */
-export const ANOMALY_YELLOW_VALUE = 0.4;
+export const ANOMALY_BAR_WIDTH = 10;

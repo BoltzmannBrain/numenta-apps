@@ -22,8 +22,8 @@ import {ACTIONS} from '../lib/Constants';
  * Dispatches `param_finder` errors
  * @param {FluxibleContext} actionContext  FluxibleContext
  * @param {object} payload       Error payload
- * @param {string} payload.metricId The metric that generate the error
  * @param {string} payload.command The command that generate the error
+ * @param {string} payload.metricId The metric that generate the error
  * @param {string} payload.error The error description
  * @emits {START_PARAM_FINDER_FAILED}
  * @emits {STOP_PARAM_FINDER_FAILED}
@@ -32,17 +32,20 @@ import {ACTIONS} from '../lib/Constants';
 export default function (actionContext, payload) {
   let {command, metricId, error} = payload;
   if (command === 'create') {
+    actionContext.getGATracker().exception(ACTIONS.START_PARAM_FINDER_FAILED);
     actionContext.dispatch(ACTIONS.START_PARAM_FINDER_FAILED, {
       metricId, error
     });
     return;
   } else if (command === 'remove') {
+    actionContext.getGATracker().exception(ACTIONS.STOP_PARAM_FINDER_FAILED);
     actionContext.dispatch(ACTIONS.STOP_PARAM_FINDER_FAILED, {
       metricId, error
     });
     return;
   }
 
+  actionContext.getGATracker().exception(ACTIONS.UNKNOWN_PARAM_FINDER_FAILURE);
   actionContext.dispatch(ACTIONS.UNKNOWN_PARAM_FINDER_FAILURE, {
     metricId, error
   });

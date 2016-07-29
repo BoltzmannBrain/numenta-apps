@@ -114,6 +114,10 @@ export default class ModelServiceIPC {
           this._webContents.send(MODEL_SERVER_IPC_CHANNEL, modelId, 'error', {
             error: new UserError(payload)
           });
+        } else if (command === 'data') {
+          // Do nothing.
+          //
+          // After the data is in the database, call _notifyNewModelResult.
         } else {
           this._webContents.send(
             MODEL_SERVER_IPC_CHANNEL, modelId, command, payload
@@ -121,6 +125,12 @@ export default class ModelServiceIPC {
         }
       }
     });
+  }
+
+  _notifyNewModelResult(modelId) {
+    this._webContents.send(
+      MODEL_SERVER_IPC_CHANNEL, modelId, 'notifyNewModelResults', null
+    );
   }
 
   /**

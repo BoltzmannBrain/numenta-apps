@@ -18,7 +18,7 @@ Or, if you prefer pip:
 
 You can see coverage across multiple projects as follows:
 
-    py.test --cov nta.utils --cov htmengine --cov taurus taurus/tests/unit htmengine/tests/unit nta.utils/tests/unit
+    py.test --cov nta.utils --cov htmengine --cov taurus taurus_engine/tests/unit htmengine/tests/unit nta.utils/tests/unit
 
 
 ## Licenses
@@ -63,13 +63,13 @@ HTM-IT for Stocks mobile client.
 
 **Languages**: Java
 
-#### [`/taurus.metric_collectors`](taurus.metric_collectors)
+#### [`/taurus_metric_collectors`](taurus.metric_collectors)
 
 Custom metric collectors for HTM-IT for Stocks data providers.
 
 **Languages**: Python
 
-#### [`/taurus.monitoring`](taurus.monitoring)
+#### [`/taurus_monitoring`](taurus_monitoring)
 
 Monitoring scripts and related utilities for monitoring HTM-IT for Stocks
 (Code name: Taurus).

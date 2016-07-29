@@ -19,16 +19,10 @@ import nconf from 'nconf';
 import path from 'path';
 import isElectronRenderer from 'is-electron-renderer';
 
-const CONFIG_FILE = 'default.json';
+import DEFAULT_CONFIG_FILE from '../config/default.json';
+import DEVELOPMENT_CONFIG_FILE from '../config/environment.development.json';
+import PRODUCTION_CONFIG_FILE from '../config/environment.production.json';
 const CONFIG_PATH = path.join(__dirname, '..', 'config');
-
-const Defaults = {
-  NODE_ENV: 'development',
-  TEST_HOST: 'http://localhost',
-  TEST_PATH: '',
-  TEST_PORT: 8008
-};
-
 
 /**
  * HTM Studio: ConfigService - Respond to a ConfigClient over IPC, sharing our
@@ -36,25 +30,29 @@ const Defaults = {
  * @return {Object} - Configuration data handler object
  */
 function createConfigService() {
-  const config = nconf.env().argv().defaults(Defaults);
+  const config = nconf.env().argv();
+
+  // Global environment
+  config.defaults(DEFAULT_CONFIG_FILE);
+
+  /* eslint-disable no-process-env */
+  if (process.env.NODE_ENV === 'development') {
+    config.overrides(DEVELOPMENT_CONFIG_FILE);
+  } else {
+    config.overrides(PRODUCTION_CONFIG_FILE);
+  }
+  /* eslint-ensable no-process-env */
 
   // Set first file/store to user settings
   let location = path.join(CONFIG_PATH, 'user.settings.json');
   if (!isElectronRenderer) {
     try {
       const app = require('app'); // eslint-disable-line
-      location = path.join(app.getPath('userData'), 'settings.json')
+      location = path.join(app.getPath('userData'), 'settings2.json');
     } catch (error) { /* no-op */ }
   }
   // User settings
   config.file('user', location);
-
-  // Global environment
-  config.file(path.join(CONFIG_PATH, CONFIG_FILE));
-  config.file(
-    'environment',
-    path.join(CONFIG_PATH, `environment.${config.get('NODE_ENV')}.json`)
-  );
 
   return config;
 }

@@ -37,7 +37,8 @@ export default class FileDetailsStore extends BaseStore {
       SHOW_FILE_DETAILS: '_showFileDetails',
       HIDE_FILE_DETAILS: '_hideFileDetails',
       VALIDATE_FILE_FAILED: '_handleFileValidate',
-      VALIDATE_FILE: '_handleFileValidate'
+      VALIDATE_FILE: '_handleFileValidate',
+      VALIDATE_FILE_WARNING: '_handleFileValidate'
     }
   }
   constructor(dispatcher) {
@@ -45,6 +46,7 @@ export default class FileDetailsStore extends BaseStore {
     this._file = null;
     this._fields = null;
     this._error = null;
+    this._warning = null;
     this._visible = false;
     this._newFile = false;
   }
@@ -77,6 +79,14 @@ export default class FileDetailsStore extends BaseStore {
   getError() {
     return this._error;
   }
+
+  /**
+   * The current validation warning
+   * @return {string} The current validation warning or null
+  */
+  getWarning() {
+    return this._warning;
+  }
   /**
    * @return {Boolean} Whether or not showing a new file
    */
@@ -89,10 +99,11 @@ export default class FileDetailsStore extends BaseStore {
    * @param  {object} results The file, fields and error to show
    */
   _showFileDetails(results) {
-    let {file, fields, error} = results;
+    let {file, fields, error, warning} = results;
     this._file = file;
     this._fields = fields;
     this._error = error;
+    this._warning = warning;
     this._visible = true;
     this._newFile = false;
     this.emitChange();
@@ -106,6 +117,7 @@ export default class FileDetailsStore extends BaseStore {
     this._file = null;
     this._fields = null;
     this._error = null;
+    this._warning = null;
     this.emitChange();
   }
 
@@ -118,6 +130,7 @@ export default class FileDetailsStore extends BaseStore {
     this._visible = true;
     this._newFile = true;
     this._error = results.error;
+    this._warning = results.warning;
     this._file = results.file;
     this._fields = results.fields;
     this.emitChange();

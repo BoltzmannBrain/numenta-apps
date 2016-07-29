@@ -37,22 +37,19 @@ import unittest
 import numpy
 from pkg_resources import resource_stream
 
-from nta.utils.logging_support_raw import LoggingSupport
-from nta.utils import test_utils
-from unicorn_backend import date_time_utils
+from unicorn_backend.utils import test_utils
+from unicorn_backend.utils import date_time_utils
 
 
 
 _LOGGER = logging.getLogger("unicorn_model_runner_test")
+_LOGGER.addHandler(logging.StreamHandler())
+
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
 
 # threshold from NAB/config/thresholds.json
 ANOMALY_THRESH = 0.5126953125
-
-
-def setUpModule():
-  LoggingSupport.initTestApp()
 
 
 
@@ -67,7 +64,7 @@ class ModelRunnerCompatibilityTest(unittest.TestCase):
       per input_opt_schema.json
     :returns: the started subprocess.Popen object wrapped in
       ManagedSubprocessTerminator
-    :rtype: nta.utils.test_utils.ManagedSubprocessTerminator
+    :rtype: unicorn_backend.utils.test_utils.ManagedSubprocessTerminator
     """
 
     _LOGGER.info("Python: %s" % sys.executable)
@@ -96,7 +93,7 @@ class ModelRunnerCompatibilityTest(unittest.TestCase):
       model_opt_schema.json
     :returns: the started subprocess.Popen object wrapped in
       ManagedSubprocessTerminator
-    :rtype: nta.utils.test_utils.ManagedSubprocessTerminator
+    :rtype: unicorn_backend.utils.test_utils.ManagedSubprocessTerminator
     """
     argumentPattern = [sys.executable,
                        "-m", "unicorn_backend.model_runner_2",

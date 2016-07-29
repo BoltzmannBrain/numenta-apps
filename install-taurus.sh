@@ -31,4 +31,4 @@ function install {
 install nta.utils $1
 install htmengine $1
 install infrastructure $1
-install taurus $1
+install taurus_engine $1

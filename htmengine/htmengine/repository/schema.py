@@ -50,7 +50,7 @@ instance_status_history = Table(  # pylint: disable=C0103
                                        DATETIME(),
                                        primary_key=True,
                                        nullable=False,
-                                       server_default="0000-00-00 00:00:00"),
+                                       server_default=None),
                                 Column("status",
                                        VARCHAR(length=32),
                                        nullable=False,

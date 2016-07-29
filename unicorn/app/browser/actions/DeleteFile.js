@@ -29,11 +29,14 @@ import {ACTIONS} from '../lib/Constants';
  * @return {Promise}
  */
 export default function (actionContext, filename) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.DELETE_FILE);
+
   return new Promise((resolve, reject) => {
     let database = actionContext.getDatabaseClient();
     // Delete file and its data
     database.deleteFile(filename, (error) => {
       if (error) {
+        actionContext.getGATracker().exception(ACTIONS.DELETE_FILE_FAILED);
         actionContext.dispatch(ACTIONS.DELETE_FILE_FAILED, {filename, error});
         reject(error);
       } else {

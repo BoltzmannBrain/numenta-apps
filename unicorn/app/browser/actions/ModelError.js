@@ -22,8 +22,8 @@ import {ACTIONS} from '../lib/Constants';
  * Dispatches `model_runner` errors
  * @param {FluxActionContext} actionContext FluxibleContext
  * @param {object} payload       Error payload
- * @param {string} payload.modelId The model that generate the error
  * @param {string} payload.command The command that generate the error
+ * @param {string} payload.modelId The model that generate the error
  * @param {string} payload.error The error description
  * @emits {START_MODEL_FAILED}
  * @emits {STOP_MODEL_FAILED}
@@ -33,16 +33,19 @@ export default function (actionContext, payload) {
   let {command, modelId, error} = payload;
 
   if (command === 'create') {
+    actionContext.getGATracker().exception(ACTIONS.START_MODEL_FAILED);
     actionContext.dispatch(ACTIONS.START_MODEL_FAILED, {
       modelId, error
     });
     return;
   } else if (command === 'remove') {
+    actionContext.getGATracker().exception(ACTIONS.STOP_MODEL_FAILED);
     actionContext.dispatch(ACTIONS.STOP_MODEL_FAILED, {
       modelId, error
     });
     return;
   }
+  actionContext.getGATracker().exception(ACTIONS.UNKNOWN_MODEL_FAILURE);
   actionContext.dispatch(ACTIONS.UNKNOWN_MODEL_FAILURE, {
     modelId, error
   });

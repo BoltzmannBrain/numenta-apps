@@ -10,14 +10,14 @@ validictory==0.9.1
 
 # Required by htm-it
 boto==2.38.0
-fabric==1.9.0
+fabric==1.11.1
 msgpack-python==0.3.0
 paste==1.7.5.1
 pytz==2015.7
 requests==2.0.1
 sphinx==1.1.3
 supervisor==3.1.3
-uwsgi==2.0.4
+uwsgi==2.0.12
 web.py==0.37
 sqlalchemy==0.9.4
 alembic==0.6.7

@@ -198,7 +198,8 @@ class ResultQualityTests(test_case_base.TestCaseBase):
     return metricName
 
 
-  def _getPathToData(self, filename):
+  @staticmethod
+  def _getPathToData(filename):
     """
     Returns the absolute path to a file that lives in the relative data/
     directory.
@@ -206,9 +207,7 @@ class ResultQualityTests(test_case_base.TestCaseBase):
     basePath = os.path.split(os.path.abspath(__file__))[0]
     dataDirPath = os.path.join(basePath, 'data')
 
-    knownDataFilePath = os.path.join(dataDirPath, filename)
-
-    return knownDataFilePath
+    return os.path.join(dataDirPath, filename)
 
 
   @classmethod

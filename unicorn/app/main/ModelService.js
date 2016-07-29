@@ -21,6 +21,8 @@ import system from 'os';
 
 import getPortablePython from './PortablePython';
 import UserError from './UserError';
+import {parseIsoTimestampFallbackUtc, getNaiveTime} from '../common/timestamp';
+import log from './Logger'
 
 const PYTHON_EXECUTABLE = getPortablePython();
 
@@ -95,13 +97,18 @@ export class ModelService extends EventEmitter {
    */
   createModel(modelId, inputOpt, aggregationOpt, modelOpt) {
     if (this.availableSlots() <= 0) {
-      throw new MaximumConcurrencyError();
+      let err = new MaximumConcurrencyError();
+      log.error({err, modelId, inputOpt, aggregationOpt, modelOpt});
+      throw err;
     }
     if (this._models.has(modelId)) {
-      throw new DuplicateIDError();
+      let err = new DuplicateIDError();
+      log.error({err, modelId, inputOpt, aggregationOpt, modelOpt});
+      throw err;
     }
 
     let params = [
+      '-E',
       '-m', 'unicorn_backend.model_runner_2',
       '--input', JSON.stringify(inputOpt),
       '--model', JSON.stringify(modelOpt)
@@ -114,24 +121,42 @@ export class ModelService extends EventEmitter {
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
 
-    child.on('error', (error) => {
-      this.emit(modelId, 'error', error);
+    child.on('error', (err) => {
+      log.error({err, modelId, inputOpt, aggregationOpt, modelOpt});
+      this.emit(modelId, 'error', err);
     });
 
     child.stderr.on('data', (error) => {
+      log.error({err: new Error(error),
+        modelId, inputOpt, aggregationOpt, modelOpt});
       this.emit(modelId, 'error', error);
     });
 
+    let index = 0;
     child.stdout.on('data', (data) => {
       // Model data chunks are separated by '\n', see 'model_runner_2' for details
       data.split('\n').forEach((line) => {
         if (line && line.length > 0) {
-          this.emit(modelId, 'data', line)
+          let [timestamp, value, score] = JSON.parse(line);
+          let [m] = parseIsoTimestampFallbackUtc(timestamp);
+
+          let modelData = {
+            iso_timestamp: timestamp,
+            naive_time: getNaiveTime(m),
+            metric_value: value,
+            anomaly_score: score
+          };
+          this.emit(modelId, 'data', [index, modelData]);
+          index++;
         }
       });
     });
 
     child.once('close', (code) => {
+      if (code) {
+        log.error({err: new Error(`close error: ${code}`),
+                    modelId, inputOpt, aggregationOpt, modelOpt});
+      }
       this._models.delete(modelId);
       this.emit(modelId, 'close', code);
     });
@@ -155,7 +180,9 @@ export class ModelService extends EventEmitter {
    */
   removeModel(modelId) {
     if (!this._models.has(modelId)) {
-      throw new ModelNotFoundError();
+      let err = new ModelNotFoundError();
+      log.error({err, modelId});
+      throw err;
     }
 
     const model = this._models.get(modelId);

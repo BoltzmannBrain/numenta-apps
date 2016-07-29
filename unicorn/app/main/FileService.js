@@ -34,10 +34,16 @@ import {
   PFInputSchema, PFOutputSchema
 } from '../database/schema';
 import TimeAggregator from './TimeAggregator';
-import {TIMESTAMP_FORMATS} from '../common/timestamp';
+import {
+  COMPOUND_TIMESTAMP_FORMATS,
+  MAX_UNIX_TIMESTAMP_IN_SECONDS,
+  UNIX_TIMESTAMP_SEC_MOMENT_FORMAT,
+  UNIX_TIMESTAMP_MILLISEC_MOMENT_FORMAT
+} from '../common/timestamp';
 import {
   generateFileId, generateMetricId
 } from './generateId';
+import {NA_STRINGS} from '../config/na';
 
 const INSTANCES = {
   FILE: instantiator.instantiate(DBFileSchema),
@@ -54,24 +60,77 @@ SCHEMAS.forEach((schema) => {
   VALIDATOR.addSchema(schema);
 });
 
+// Substrings of column names that are hints that the column might contain a
+// timestamp
+const TIMESTAMP_HEADER_SUBSTRINGS = ['time', 'date'];
+
+const UNIX_TIMESTAMP_FORMATS = [
+  UNIX_TIMESTAMP_SEC_MOMENT_FORMAT,
+  UNIX_TIMESTAMP_MILLISEC_MOMENT_FORMAT
+];
+
+
+/**
+ * Check if a value is a NA value (lowercase and removes whitespace)
+ * @param {Object} entry : of the csv row to be checked against NA strings.
+ * @return {boolean}  returns true if it is an NA string value
+ *                    , and false otherwise.
+ */
+function isNA(entry) {
+  if (typeof entry === 'undefined') {
+    return true;
+  }
+  return NA_STRINGS.indexOf(entry.toString()
+    .toLowerCase().replace(/\s+/g, '')) > -1
+}
+
+/**
+ * Check if a row in the csv file has an empty or NA string in one of its
+ * columns. (gets rid of all whitespace in the entry before checking for empty)
+ * @param  {array}  row: entries of the csv row to be checked agaian NA string
+ * @return {boolean}  returns true if there contains an empty or NA string value
+ *                    in the array, and false otherwise.
+ */
+function containsNA(row) {
+  return row.some((entry) => isNA(entry));
+}
+
+/**
+ * Check if a row in the csv file is possibly a valid header row, based on its
+ * lack of resemblance to a valid data row with a compound timestamp (exactly
+ * one compound date and at least one numeric type and does not contain a
+ * missing value)
+ * @param  {array}  row: entries of the csv row to be validated
+ * @return {boolean}  returns true if the row resembles a CSV header row and
+ *                    false otherwise.
+ */
+function resemblesHeaderRow(row) {
+  let numdates = row.map((entry) =>
+                  (typeof guessCompoundTimestampFormat(entry) !== 'undefined'))
+                  .reduce((curr,prev) => curr + prev);
+  let hasNumeric = row.some((entry) => Number.isFinite(Number(entry)))
+  return !(!containsNA(row) && numdates === 1 && hasNumeric);
+}
+
 
 /**
  * Check if the given value is a valid datetime value and returns the best
- * matching timestamp format defined in {@link TIMESTAMP_FORMATS}
+ * matching timestamp format defined in {@link COMPOUND_TIMESTAMP_FORMATS}
  * @param  {string}  timestamp Formatted timestamp string to validate
  * @return {string}            The best matching datetime format
  *                             or `null` if value is not a valid date
  */
-function guessTimestampFormat(timestamp) {
-  return TIMESTAMP_FORMATS.find((format) => {
-    return moment(timestamp, format, true).isValid();
+function guessCompoundTimestampFormat(timestamp) {
+  return COMPOUND_TIMESTAMP_FORMATS.find((format) => {
+    return moment.utc(timestamp, format, true).isValid();
   });
 }
 
 /**
- * Check whether or not the given string can be converted into a valid {@link Date}
+ * Check whether or not the given string can be converted into a valid
+ *  {@link Date}
  * > NOTE: Based on 'Date.parse' which is browser and locale dependent and may
- * >			 not work in all cases.
+ * >       not work in all cases.
  * @param  {string}  value string value to chaeck
  * @return {Boolean}       true for valid date false otherwise
  */
@@ -116,7 +175,7 @@ function guessFields(filename, values, names) {
     // Check for valid field types (date or number)
     let value = values[index].trim();
     if (value.length > 0) {
-      let format = guessTimestampFormat(value);
+      let format = guessCompoundTimestampFormat(value);
       if (format) {
         field.type = 'date';
         field.format = format;
@@ -150,6 +209,20 @@ function guessFields(filename, values, names) {
     }
   }
   return fields;
+}
+
+/**
+ * Checks if the field name could be that of a timestamp
+ *
+ * @param {string} name   Field name
+ *
+ * @return {boolean}      true if field name could be that of a timestamp
+ */
+function fieldNameCouldBeTimestamp(name) {
+  name = name.toLowerCase();
+  return TIMESTAMP_HEADER_SUBSTRINGS.some((v) => {
+    return name.indexOf(v) >= 0;
+  });
 }
 
 
@@ -197,7 +270,7 @@ export class FileService {
   }
 
   /**
-   * Get all field definitions for the give file guessing header row and
+   * Get all field definitions for the given file, guessing header row and
    * data types based on first record, validating the file structure based on
    * the following criteria:
    * - The file must be valid CSV file
@@ -205,8 +278,9 @@ export class FileService {
    * - The file must have at least one scalar fields
    * - Ignore all other fields
    *
-   * If the first row only contain strings then use it as header row, otherwise
-   * the header should be based on data type, something like this:
+   * If the first row only contain a combination of strings and/or numbers, then
+   * use it as header row; otherwise, the header should be based on data type,
+   * something like this:
    *
    * ```
    *   timestamp, metric1, metric2, ...
@@ -236,6 +310,8 @@ export class FileService {
   getFields(filename, callback) {
     let stream = fs.createReadStream(filename , {encoding: 'utf8'});
     let offset = 0;
+    let validRowCounter = 0; // a counter to keep track of how many rows we have
+                             // attempted to determine fields from.
     let headers = null;
     let parser = csv({
       objectMode: true,
@@ -246,46 +322,85 @@ export class FileService {
       .pipe(parser)
       .on('data', (line) => {
         let values = Object.values(line);
-        // Make sure it is a valid CSV file
-        if (values.length <= 1) {
-          // Could not parse any columns out of this file
-          parser.removeAllListeners();
-          stream.destroy();
-          callback('Invalid CSV file');
+        let isHeader = validRowCounter === 0 && resemblesHeaderRow(line);
+        // could either be a header or a data row. If it is a data row, we only
+        // want to use it to determine fields if it has no missing values.
+        if (!isHeader && containsNA(line)) {
+          validRowCounter++;
           return;
         }
 
         let fields = guessFields(filename, values, headers);
-        if (fields.length !== 0) {
+        // skip this code if it is a header, but don't if it isn't.
+        if (fields.length !== 0 || offset !== 0) {
           let error = null;
 
           // Check if file has only one date field and at least one number
           let dateFields = fields.filter((field) => {
             return field.type === 'date';
           });
-          if (dateFields.length !== 1) {
-            error = 'The file should have one and only one date/time column';
-          } else if (!dateFields[0].format) {
-            error = `The date/time format used on column ` +
-                    `${dateFields[0].index + 1} is not supported`;
-          } else if (!fields.some((field) => field.type === 'number')) {
-            error = 'The file should have at least one numeric value';
-          }
+          if (dateFields.length === 0 && offset === 0) {
+            // No date field in first row: assume it's the header row
+          } else {
+            if (dateFields.length === 0) {
+              // No date field found in second row: check if any of the scalar
+              // fields could be a unix timestamp by examining their field names
+              for (let i in fields) {
+                let field = fields[i];
+                let valueStr = values[field.index].trim();
+                if (field.type === 'number' &&  // eslint-disable-line max-depth
+                    Number(valueStr) >= 0 &&
+                    fieldNameCouldBeTimestamp(field.name)) {
+                  // Convert field to timestamp
+                  field.type = 'date';
+                  // Check to see if the timestamp is beyond the range of
+                  // MAX_UNIX_TIMESTAMP_IN_SECONDS. If it is, interpret is as a
+                  // ms timestamp. To be clear we are taking the convention that
+                  // we only support unix timestamps in seconds that are between
+                  // 0 and strictly below 253402300800.0 (
+                  // 10000-01-01T00:00:00+00:00). And we support unix timestamps
+                  // in milliseconds that are at or above 253402300800 (unix
+                  // timestamp in ms) which is 1978-01-11T21:31:40+00:00.
+                  if (Number(valueStr) <= // eslint-disable-line max-depth
+                      MAX_UNIX_TIMESTAMP_IN_SECONDS) {
+                    field.format = UNIX_TIMESTAMP_SEC_MOMENT_FORMAT;
+                  } else {
+                    field.format = UNIX_TIMESTAMP_MILLISEC_MOMENT_FORMAT;
+                  }
+                }
+              }
 
-          parser.removeAllListeners();
-          stream.destroy();
-          callback(error, {fields, offset});
-          return;
-        } else if (offset === 1) {
-          // Unable to guess fields from first 2 lines.
-          parser.removeAllListeners();
-          stream.destroy();
-          callback('Unable to extract valid data from first 2 lines');
-          return;
+              dateFields = fields.filter((field) => {
+                return field.type === 'date';
+              });
+            }
+
+            if (dateFields.length !== 1) {
+              error = 'The file should have one and only one date/time column';
+            } else if (!dateFields[0].format) {
+              error = `The date/time format used on column ` +
+                      `${dateFields[0].index + 1} is not supported`;
+            } else if (!fields.some((field) => field.type === 'number')) {
+              error = 'The file should have at least one numeric value';
+            }
+
+            parser.removeAllListeners();
+            stream.destroy();
+            callback(error, {fields, offset});
+            return;
+          }
         }
         // Use first line as headers and wait for the second line
         headers = values;
         offset++;
+        validRowCounter++;
+      })
+      .once('end', () => {
+        // We reached the end of the csv and we did not find a row
+        // without missing values
+        callback('The CSV file must have at least one' +
+                 ' row without missing values');
+        return;
       });
   }
 
@@ -406,8 +521,9 @@ export class FileService {
    *                       limit: Number.MAX_SAFE_INTEGER
    *                     }
    *
-   * @param {Function} callback - This callback will be called with the results in
-   *                              the following format: `function (error, stats)`
+   * @param {Function} callback - This callback will be called with the results
+   *                              in the following format:
+   *                              `function (error, stats)`
    *
    *                              stats = {
    *                                count: '100',
@@ -506,7 +622,7 @@ export class FileService {
    *
    * @param  {string}   filename  Full path name
    * @param  {Function} callback called when the operation is complete with
-   *                             results or error message
+   *                             results, warning, or error message
    * @see {@link #getFields}
    * @see File.json
    * @see Metric.json
@@ -521,6 +637,7 @@ export class FileService {
     // Validate fields
     this.getFields(filename, (error, validFields) => {
       let dataError = error;
+      let dataWarning = null;
 
       // Update file and fields
       let fields = [];
@@ -528,6 +645,9 @@ export class FileService {
       if (validFields) {
         fields = validFields.fields;
         offset = validFields.offset;
+      } else {
+        callback (error, null, {file, fields});
+        return;
       }
 
       // Load data
@@ -536,39 +656,60 @@ export class FileService {
       });
       let csvParser = csv({columns: false, objectMode: true});
       let newliner = convertNewline('lf').stream();
-      let row = 0;
-
+      let row = 0; // number of valid rows
+      let timestampField = fields.find((field) => field.type === 'date');
       csvParser.on('data', (data) => {
-        row++;
-        // Skip header row offset
-        if (row <= offset) {
+        let validTimestamp = typeof timestampField !== 'undefined' &&
+                             !isNA(data[timestampField.index]);
+        // Skip header row offset and increment when
+        // dataerror and timestamp isnt na.
+        if (row < offset || (dataError && validTimestamp)) {
+          row++;
           return;
-        }
-        // Stop validating of first error but keep loading file to get total records
-        if (dataError) {
+        } else if (dataError) { // don't increment if the timestamp is not valid
           return;
+        } else if (validTimestamp) { // increment and validate.
+          row++;
         }
+
         let message;
         let valid = fields.every((field, index) => {
           let value = data[field.index];
-          switch (field.type) {
-          case 'number':
-            message = `Invalid number at row ${row}: ` +
-                      `Found '${field.name}' = '${value}'`;
-            return Number.isFinite(Number(value));
-          case 'date':
-            message = `Invalid date/time at row ${row}: ` +
-                      `The date/time value is '${value}'`;
-            if (field.format) {
-              let current = moment().format(field.format);
-              message += ' instead of having a format matching ' +
-                         `'${field.format}'. For example: '${current}'`;
+          if (!isNA(value)) {
+            switch (field.type) {
+            case 'number':
+              message = `Invalid number at row ${row}: ` +
+                        `Found '${field.name}' = '${value}'`;
+              return Number.isFinite(Number(value));
+            case 'date':
+              message = `Invalid date/time at row ${row}: ` +
+                        `The date/time value is '${value}'`;
+              if (field.format) {
+                let current = moment().format(field.format);
+                message += ' instead of having a format matching ' +
+                           `'${field.format}'. For example: '${current}'`;
+              }
+              let isValid;
+              if (UNIX_TIMESTAMP_FORMATS.indexOf(field.format) >= 0) {
+                // Work around moment's failure to validate floating point
+                // Unix Timestamp in strict mode
+                isValid = moment.utc(value, field.format, false).isValid();
+              } else {
+                isValid = moment.utc(value, field.format, true).isValid();
+              }
+              return isValid;
+            default:
+              return true;
             }
-            return moment(value, field.format).isValid();
-          default:
+          } else {
             return true;
           }
         });
+        if (row > 20000) {
+          dataWarning = 'The number of rows exceeds 20,000. While you can' +
+           ' proceed with this file, note that HTM Studio will be' +
+           ' unresponsive during the loading of very large files.'
+        }
         if (!valid) {
           dataError = message;
           return;
@@ -578,12 +719,15 @@ export class FileService {
       .once('end', () => {
         file.records = row;
         file.rowOffset = offset;
-        callback(dataError, {file, fields});
+        if (file.records < 400 && !dataError) {
+          dataError = 'The CSV file needs to have at least 400 rows with' +
+                      ' a valid timestamp';
+        }
+        callback(dataError, dataWarning, {file, fields});
       });
       stream.pipe(newliner).pipe(csvParser);
     });
   }
-
 }
 
 // Returns singleton

@@ -17,27 +17,45 @@
 
 import RGBColor from 'rgbcolor';
 
-import {anomalyScale} from '../../../common/common-utils';
-import {DATA_FIELD_INDEX} from '../Constants';
+import {anomalyScale, binarySearch} from '../../../common/common-utils';
+import {
+  ANOMALY_BAR_WIDTH , DATA_FIELD_INDEX, PROBATION_LENGTH
+} from '../Constants';
 import {mapAnomalyColor} from '../../lib/browser-utils';
 
-const {DATA_INDEX_TIME, DATA_INDEX_ANOMALY} = DATA_FIELD_INDEX;
+const {
+  DATA_INDEX_TIME, DATA_INDEX_ANOMALY
+} = DATA_FIELD_INDEX;
 
+// Anomaly bar padding in pixels
+const PADDING = 3;
 
 /**
  * Helper function to Draw a rectangle on a DyGraphs canvas.
- * @param {Object} canvas - Dygraphs Canvas DOM reference.
+ * @param {CanvasRenderingContext2D} ctx - Dygraphs Canvas context.
  * @param {Number} xStart - Starting X coordinate of rectangle.
  * @param {Number} yStart - Starting Y coordinate for rectangle.
  * @param {Number} width - Width of rectangle.
  * @param {Number} height - Height of rectangle.
  * @param {String} color - Color to fill in rectangle.
  */
-function _drawRectangle(canvas, xStart, yStart, width, height, color) {
-  canvas.fillStyle = new RGBColor(color).toRGB();
-  canvas.fillRect(xStart, yStart, width, height);
+function _drawRectangle(ctx, xStart, yStart, width, height, color) {
+  ctx.fillStyle = new RGBColor(color).toRGB();
+  ctx.fillRect(xStart, yStart, width, height);
 }
 
+/**
+ * Compare function used to search row by time
+ * @param  {Object}  current Current data recored
+ * @param  {integer} key     Timestamp key (UTC miliseconds)
+ * @return {integer}         0 for match,
+ *                           negative value if current < key,
+ *                           positive value if current > key
+ * @see  {@link binarySearch}
+ */
+function _compare(current, key) {
+  return current[DATA_INDEX_TIME] - key;
+}
 
 /**
  * DyGraph Custom Chart Underlay: AnomalyBarChart Plotter-like callback, for
@@ -46,47 +64,83 @@ function _drawRectangle(canvas, xStart, yStart, width, height, color) {
  *  customzing Dygraph's Underlay Callback. This is a much better simulation
  *  of a y3 axes, instead of a full custom plugin. Model Result data is forced
  *  in via the Dygraph.option with the key "modelData".
- * @param {Object} context - ModelData.jsx component context w/settings.
- * @param {Object} canvas - DOM Canvas object to draw with, from Dygraphs.
+ * @param {Object} context - Chart.jsx component context.
+ * @param {CanvasRenderingContext2D} canvasCtx - Dygraphs Canvas context.
  * @param {Object} area - Canvas drawing area metadata, Width x Height info etc.
  * @param {Object} dygraph - Instantiated Dygraph library object itself.
  * @requries Dygraphs
  * @see view-source:http://dygraphs.com/tests/underlay-callback.html
  */
-export default function (context, canvas, area, dygraph) {
-  let modelData = dygraph.getOption('modelData') || [];
-  let xAxisRange = dygraph.xAxisRange();
-  let barWidth = context._anomalyBarWidth;
-  let safeColor = context.context.muiTheme.rawTheme.palette.safeColor;
-  let height = area.h;
-  let halfBarWidth = Math.ceil(barWidth / 2);
-
-  if (!(modelData.length)) {
-    return;  // no anomaly data, no draw bars.
+export default function (context, canvasCtx, area, dygraph) { // eslint-disable-line max-statements
+  let modelData = dygraph.getOption('modelData');
+  if (modelData.length < 2) {
+    // Not enough data
+    return;
   }
 
-  for (let index=0; index<modelData.length; index++) {
-    (function (i) {  // help data survive loop closure
-      let time = modelData[i][DATA_INDEX_TIME].getTime();
-      let color, value, x, y;
+  // Divide the x extent into buckets.
+  // Each bucket contains zero or more points.
+  let timespan = dygraph.xAxisRange();
+  let visibleBucketCount = canvasCtx.canvas.offsetWidth / ANOMALY_BAR_WIDTH;
+  let timestampBucketWidth =
+        (timespan[1] - timespan[0]) / visibleBucketCount;
+  let bucketStart0 =
+        modelData[0][DATA_INDEX_TIME] - timestampBucketWidth/2;
+  let firstVisibleBucket =
+        Math.floor((timespan[0] - bucketStart0) / timestampBucketWidth);
 
-      if (time < xAxisRange[0] || time > xAxisRange[1]) {
-        return;  // filter out if not inside the current date range
+  // Walk all of the visible buckets, using a single `iData` index.
+  let bucketIndex = firstVisibleBucket;
+  let bucketStart = bucketStart0 + (bucketIndex * timestampBucketWidth);
+
+  let iData = binarySearch(modelData, timespan[0], _compare);
+  if (iData < 0) {
+    iData = ~iData;
+  }
+
+  while (bucketStart <= timespan[1]) {
+    // Find all results within this bucket.
+    let bucketEnd = bucketStart + timestampBucketWidth;
+
+    let matchStart = iData;
+    while (matchStart < modelData.length &&
+           modelData[matchStart][DATA_INDEX_TIME] < bucketStart) {
+      matchStart++;
+    }
+
+    let matchEnd = matchStart;
+    while (matchEnd < modelData.length &&
+           modelData[matchEnd][DATA_INDEX_TIME] < bucketEnd) {
+      matchEnd++;
+    }
+
+    if (matchStart !== matchEnd) {
+      let color, heightPercent;
+      if (matchEnd - 1 < PROBATION_LENGTH) {
+        // All results in this bucket are in the probationary period.
+        color = mapAnomalyColor(null);
+        heightPercent = anomalyScale(0);
+      } else {
+        // Use the highest anomaly score in this bucket.
+        let maxAnomaly = 0;
+        for (let i = Math.max(matchStart, PROBATION_LENGTH); i < matchEnd;
+             i++) {
+          maxAnomaly = Math.max(maxAnomaly, modelData[i][DATA_INDEX_ANOMALY]);
+        }
+
+        color = mapAnomalyColor(maxAnomaly);
+        heightPercent = anomalyScale(maxAnomaly);
       }
 
-      value = modelData[i][DATA_INDEX_ANOMALY];
-      x = Math.round(dygraph.toDomXCoord(time) - halfBarWidth);
+      let x = dygraph.toDomXCoord(bucketStart);
+      let y = area.h - 1;
+      let height = heightPercent * area.h;
+      _drawRectangle(canvasCtx, x + PADDING/2, y, ANOMALY_BAR_WIDTH - PADDING,
+                     -height, color);
+    }
 
-      // draw: every point has small green marker "bar" by default
-      _drawRectangle(canvas, x, height - 1, barWidth, -2, safeColor);
-
-      if (isFinite(x) && (value >= 0)) {
-        // draw: real anomaly bar
-        let barHeight = Math.round(anomalyScale(value) * height);
-        y = 0 - barHeight;
-        color = mapAnomalyColor(value);
-        _drawRectangle(canvas, x, height - 1, barWidth, y, color);
-      }
-    }(index));  // help data survive loop closure
-  }  // for loop modelData
+    bucketIndex++;
+    bucketStart = bucketStart0 + (bucketIndex * timestampBucketWidth);
+    iData = matchEnd;
+  }
 }

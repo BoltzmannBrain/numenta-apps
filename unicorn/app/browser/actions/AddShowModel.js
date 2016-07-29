@@ -33,10 +33,13 @@ import ShowModelAction from './ShowModel';
  * @emits {ADD_MODEL_FAILED}
  */
 export default function (actionContext, model) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.ADD_MODEL);
+
   return new Promise((resolve, reject) => {
     let db = actionContext.getDatabaseClient();
     db.putModel(model, (error) => {
       if (error) {
+        actionContext.getGATracker().exception(ACTIONS.ADD_MODEL_FAILED);
         actionContext.dispatch(ACTIONS.ADD_MODEL_FAILED, {error, model});
         reject(error);
       } else {

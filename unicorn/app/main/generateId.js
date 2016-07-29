@@ -16,7 +16,7 @@
 // http://numenta.org/licenses/
 
 import crypto from 'crypto';
-import moment from 'moment';
+import path from 'path';
 
 
 /**
@@ -35,8 +35,10 @@ export function generateId(seed) {
  * @return {string} Unique id
  */
 export function generateFileId(filename) {
+  // Use only basename when generating File ID. See UNI-527
+  let basename = path.basename(filename);
   // Use 64 bit hash
-  return generateId(filename).substr(0,16);
+  return generateId(basename).substr(0,16);
 }
 
 /**
@@ -56,12 +58,10 @@ export function generateMetricId(filename, metric) {
 /**
  * Genereate unique metric data id based on the metric id and timestamp
  * @param  {string} metricId - Metric ID
- * @param  {Date} timestamp  - timestamp for the data record
+ * @param  {number} index  - Row number of the data record
  * @return {string} Unique id
  */
-export function generateMetricDataId(metricId, timestamp) {
-  if (!(timestamp instanceof Date)) {
-    timestamp = moment(timestamp);
-  }
-  return `${metricId}!${timestamp.valueOf()}`;
+export function generateMetricDataId(metricId, index) {
+  let indexString = `000000000000${index}`.substr(-13);
+  return `${metricId}!${indexString}`;
 }

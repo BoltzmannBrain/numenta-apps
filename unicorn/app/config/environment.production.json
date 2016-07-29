@@ -1,4 +1,14 @@
 {
   "me": "config.environment.production",
-  "env": "prod"
+  "env": "prod",
+  "logging": {
+    "name": "htmstudio",
+    "streams": [{
+      "level": "info",
+      "type": "rotating-file",
+      "path": "error.log",
+      "period": "weekly",
+      "count": 2
+    }]
+  }
 }

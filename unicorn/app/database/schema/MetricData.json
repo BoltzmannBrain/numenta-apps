@@ -3,13 +3,13 @@
   "id": "/db/MetricData",
   "type": "object",
   "properties": {
-    "metric_uid": {
+    "iso_timestamp": {
       "type": "string",
-      "maxLength": 50,
-      "minLength": 1,
+      "minLength": 10,
+      "maxLength": 32,
       "required": true
     },
-    "timestamp": {
+    "naive_time": {
       "type": "integer",
       "required": true
     },

@@ -20,8 +20,8 @@
 import {ipcRenderer as ipc} from 'electron';
 
 import ModelErrorAction from '../../actions/ModelError';
-import ReceiveModelDataAction from '../../actions/ReceiveModelData';
-import StopModelAction from '../../actions/StopModel';
+import NotifyNewModelResultsAction from '../../actions/NotifyNewModelResults';
+import CloseModelAction from '../../actions/CloseModel';
 
 const MODEL_SERVER_IPC_CHANNEL = 'MODEL_SERVER_IPC_CHANNEL';
 
@@ -34,8 +34,6 @@ export default class ModelClient {
 
   constructor() {
     this._context = null;
-    this._lastActionEvent = 0;
-    this._dataBuffer = new Map();
   }
 
   start(actionContext) {
@@ -62,13 +60,13 @@ export default class ModelClient {
 
   _handleIPCEvent(event, modelId, command, payload) {
     if (this._context) {
-      if (command === 'data') {
-        setTimeout(() => this._handleModelData(modelId, payload));
+      if (command === 'notifyNewModelResults') {
+        this._context.executeAction(NotifyNewModelResultsAction, modelId);
       } else if (command === 'error') {
         let {error, ipcevent} = payload;
-        setTimeout(() => this._handleIPCError(modelId, error, ipcevent));
+        this._handleIPCError(error, ipcevent);
       } else if (command === 'close') {
-        setTimeout(() => this._handleCloseModel(modelId ,payload));
+        this._handleCloseModel(modelId, payload);
       } else {
         console.error(`Unknown command: ${command} ${payload}`); // eslint-disable-line
       }
@@ -93,53 +91,13 @@ export default class ModelClient {
   _handleCloseModel(modelId, error) {
     if (error !== 0) {
       this._context.executeAction(ModelErrorAction, {
-        modelId,
         command: 'close',
+        modelId,
         error: `Error closing model ${error}`
       });
     } else {
-      // Flush model data
-      this._flush(modelId);
-      // Stop model
-      this._context.executeAction(StopModelAction, modelId);
-    }
-  }
-
-  _flush(modelId) {
-    if (modelId) {
-      if (this._dataBuffer.has(modelId)) {
-        let data = this._dataBuffer.get(modelId);
-        this._dataBuffer.delete(modelId);
-        this._context.executeAction(ReceiveModelDataAction, {modelId, data});
-      }
-    } else {
-      // Flush all pending data
-      for (let [modelId, data] of this._dataBuffer) {
-        this._context.executeAction(ReceiveModelDataAction, {modelId, data});
-      }
-      this._dataBuffer.clear();
-    }
-  }
-
-  _handleModelData(modelId, payload) {
-    // Multiple data records are separated by `\n`
-    let data = payload.trim().split('\n').map((row) => {
-      if (row) {
-        return  JSON.parse(row);
-      }
-    });
-
-    // Add data to buffer
-    if (!this._dataBuffer.has(modelId)) {
-      this._dataBuffer.set(modelId, []);
-    }
-    this._dataBuffer.get(modelId).push(...data);
-
-    // Flush data every 100ms
-    let now = Date.now();
-    if (now > this._lastActionEvent + 100) {
-      this._lastActionEvent = now;
-      this._flush();
+      // Close model
+      this._context.executeAction(CloseModelAction, modelId);
     }
   }
 }

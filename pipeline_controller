@@ -285,14 +285,14 @@ def main(args):
     #STEP 2: Execute the appropriate sub-pipelines as needed
     if set(["htm.it", "htmengine", "nta.utils"]) & rootFolders:
       invokeHtmItBuild(args.gitRemote, branch, currentSha)
-    if (set(["taurus", "taurus.metric_collectors", "htmengine", "nta.utils"]) &
+    if (set(["taurus", "taurus_metric_collectors", "htmengine", "nta.utils"]) &
         rootFolders):
       invokeTaurusBuild(args.gitRemote, branch, currentSha)
     # Only run the htm-it-mobile pipeline if it has been updated itself. Otherwise
     # rely on the HTM-IT pipeline to kick off this build on success.
     if (set(["htm-it-mobile", "mobile-core", "nta.utils"]) & rootFolders):
       invokeHtmItMobileBuild(args.gitRemote, branch, currentSha)
-    if set(["taurus", "taurus.metric_collectors", "nta.utils", "htmengine",
+    if set(["taurus", "taurus_metric_collectors", "nta.utils", "htmengine",
             "taurus-mobile", "mobile-core"]) & rootFolders:
       invokeTaurusMobileBuild(args.gitRemote, branch, currentSha)
     if set(["infrastructure"]) & rootFolders:

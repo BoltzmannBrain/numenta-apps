@@ -162,7 +162,7 @@ public class TaurusClientTest extends TestCase {
      *
      * Mimic metric item as defined in taurus dynamodb service.
      * <p>
-     * See "/products/taurus/taurus/runtime/dynamodb/definitions/metric_dynamodbdefinition.py"
+     * See "/numenta-apps/taurus_engine/taurus_engine/runtime/dynamodb/definitions/metric_dynamodbdefinition.py"
      * </p>
      * <code><pre>
      * ...
@@ -225,7 +225,7 @@ public class TaurusClientTest extends TestCase {
      *
      * Mimic metric data item as defined in taurus dynamodb service.
      * <p>
-     * See "/products/taurus/taurus/runtime/dynamodb/definitions/metric_data_dynamodbdefinition.py"
+     * See "/numenta-apps/taurus_engine/taurus_engine/runtime/dynamodb/definitions/metric_data_dynamodbdefinition.py"
      * </p>
      * <code><pre>
      * ...
@@ -304,7 +304,7 @@ public class TaurusClientTest extends TestCase {
      *
      * Mimic data item as defined in taurus dynamodb service.
      * <p>
-     * See "/products/taurus/taurus/runtime/dynamodb/definitions/instance_data_hourly_dynamodbdefinition.py"
+     * See "/numenta-apps/taurus_engine/taurus_engine/runtime/dynamodb/definitions/instance_data_hourly_dynamodbdefinition.py"
      * </p>
      * <code><pre>
      * ...
@@ -438,7 +438,7 @@ public class TaurusClientTest extends TestCase {
      *
      * Mimic metric tweet as defined in taurus dynamodb service.
      * <p>
-     * See "/products/taurus/taurus/runtime/dynamodb/definitions/metric_tweets_dynamodbdefinition.py"
+     * See "/numenta-apps/taurus_engine/taurus_engine/runtime/dynamodb/definitions/metric_tweets_dynamodbdefinition.py"
      * </p>
      * <code><pre>
      * ...

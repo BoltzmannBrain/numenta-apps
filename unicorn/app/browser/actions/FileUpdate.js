@@ -28,10 +28,13 @@ import {ACTIONS} from '../lib/Constants';
  * @return {Promise}
  */
 export default function (actionContext, file) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.UPDATE_FILE);
+
   return new Promise((resolve, reject) => {
     let db = actionContext.getDatabaseClient();
     db.putFile(file, (error, results) => {
       if (error) {
+        actionContext.getGATracker().exception(ACTIONS.UPDATE_FILE_FAILED);
         actionContext.dispatch(ACTIONS.UPDATE_FILE_FAILED, file);
         reject(error);
       } else {

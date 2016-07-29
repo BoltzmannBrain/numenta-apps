@@ -1,0 +1,44 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+require 'json'
+
+# Get required 'node' version from 'package.json'
+package = JSON.parse(File.read(File.expand_path "../package.json"))
+NODE_VERSION = package["engines"]["node"]
+
+# Install 'vagrant-winrm' plugin
+unless Vagrant.has_plugin?('vagrant-winrm')
+  puts "Installing 'vagrant-winrm'"
+  %x(vagrant plugin install vagrant-winrm)
+end
+
+# Linked clones requires version 1.8
+Vagrant.require_version ">= 1.8"
+
+Vagrant.configure(2) do |config|
+  config.vm.provider "virtualbox" do |vb|
+    # Use linked clones instead of importing hard-disk
+    vb.linked_clone = true
+    vb.cpus = 2
+    vb.memory = 4096
+    vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+    vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+  end
+
+  config.vm.boot_timeout = 600
+  config.vm.graceful_halt_timeout = 600
+
+  #config.vm.box = "http://aka.ms/vagrant-win81-ie11"
+  config.vm.box = "modernIE/w10-edge"
+  config.vm.guest = :windows
+
+  config.vm.communicator = "winrm"
+  config.winrm.username = "IEUser"
+  config.winrm.password = "Passw0rd!"
+
+  config.vm.network :forwarded_port, guest: 3389, host: 3389, id: "rdp", auto_correct: true
+  config.vm.network :forwarded_port, guest: 5985, host: 5985, id: "winrm", auto_correct: true
+
+  config.vm.synced_folder "..", "/shared"
+  config.vm.provision "shell", path: "vagrant-provision.ps1", args: ["-node_version", NODE_VERSION]
+end

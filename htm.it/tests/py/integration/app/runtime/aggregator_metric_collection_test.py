@@ -188,7 +188,7 @@ class AggregatorMetricCollectionTestCase(unittest.TestCase):
 
     with self.engine.connect() as conn:
       autostack1 = self._addAutostack(name="testCollectMetricData1",
-                                      region="us-east-1",
+                                      region="us-west-2",
                                       filters='{"tag:Name": ["*"]}')
 
       m1a = self._addAutostackMetric(conn, autostack1)
@@ -388,13 +388,13 @@ class AggregatorMetricCollectionTestCase(unittest.TestCase):
 
       return autostackObj, metricObj
 
-    # All instances in us-east-1
+    # All instances in us-west-2
     engine = repository.engineFactory()
     with engine.begin() as conn:
       autostack1, m1 = (
         _createAutostackMetric(conn,
                                name="testCollectMetricStats1",
-                               region="us-east-1",
+                               region="us-west-2",
                                filters={"tag:Name": ["*"]}))
 
       stats1 = collector.collectMetricStatistics(

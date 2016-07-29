@@ -41,9 +41,10 @@ const dialog = remote.require('dialog');
  */
 @provideContext({
   getConfigClient: React.PropTypes.func,
-  getLoggerClient: React.PropTypes.func,
+  getLogger: React.PropTypes.func,
   getDatabaseClient: React.PropTypes.func,
   getFileClient: React.PropTypes.func,
+  getGATracker: React.PropTypes.func,
   getModelClient: React.PropTypes.func,
   getParamFinderClient: React.PropTypes.func
 })
@@ -78,7 +79,13 @@ export default class Main extends React.Component {
         fontWeight: muiTheme.rawTheme.font.weight.medium
       },
       models: {
-        marginLeft: 256,
+        position: 'fixed',
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        top: 0,
+        bottom: 0,
+        right: 0,
+        left: muiTheme.leftNav.width,
         padding: '1rem'
       }
     };

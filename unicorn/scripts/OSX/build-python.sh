@@ -26,6 +26,7 @@
 # nupic and nupic.bindings installed.
 
 set -o errexit
+set -o pipefail
 set -o xtrace
 
 OSX_VERSION=$(sw_vers -productVersion | awk -F '.' '{print $1 "." $2}')
@@ -33,9 +34,11 @@ echo "==> System version: $OSX_VERSION"
 PYTHON_SH="Miniconda-latest-MacOSX-x86_64.sh"
 CAPNP="capnproto-c++-0.5.3"
 WORKING_DIR=${PWD}
-SCRIPT_PATH=$(cd "$(dirname "$0")"; pwd)
+SCRIPT_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")"; pwd)
+UNICORN_BACKEND_REQUIREMENTS_TXT=${SCRIPT_PATH}/../../py/requirements.txt
 NUPIC_CORE=${WORKING_DIR}/nupic.core
 NUPIC=${WORKING_DIR}/nupic
+NUPIC_MODULES=${NUPIC}/.nupic_modules
 PREFIX=${WORKING_DIR}/portable_python
 PATH_VALUE=${PREFIX}/bin:${PREFIX}/include
 
@@ -81,8 +84,22 @@ pushd $CAPNP
 make -j6 check && make install
 popd
 
-echo "==> Cloning nupic.core ..."
+echo "==> Getting nupic version from ${UNICORN_BACKEND_REQUIREMENTS_TXT}..."
+NUPIC_VER=$(grep "^nupic==" "${UNICORN_BACKEND_REQUIREMENTS_TXT}" | cut -d "=" -f 3)
+echo "Got nupic version to install: ${NUPIC_VER}"
+
+# Next, get nupic of the desired version and get the commitish of the matching nupic.core
+echo "==> Cloning nupic at version ${NUPIC_VER}..."
+git clone https://github.com/numenta/nupic.git
+(cd "${NUPIC}" && git reset --hard "${NUPIC_VER}")
+
+echo "==> Getting nupic.core committish from ${NUPIC_MODULES}"
+NUPIC_CORE_COMMITISH=$(grep "^NUPIC_CORE_COMMITISH =" "${NUPIC_MODULES}" | cut -d "'" -f 2)
+echo "Got nupic.core commitish: ${NUPIC_CORE_COMMITISH}"
+
+echo "==> Cloning nupic.core at commitish ${NUPIC_CORE_COMMITISH} ..."
 git clone https://github.com/numenta/nupic.core.git
+(cd "${NUPIC_CORE}" && git reset --hard "${NUPIC_CORE_COMMITISH}")
 
 echo "==> Installing nupic.core requirements ..."
 rm -rf $NUPIC_CORE/build
@@ -110,11 +127,10 @@ export ARCHFLAGS="-arch x86_64"
 $PREFIX/bin/python setup.py install
 popd
 
-echo "==> Cloning nupic ..."
-git clone https://github.com/numenta/nupic.git
-
 echo "==> Installing nupic ..."
 pushd $NUPIC
+# Clean up nupic  datafiles
+rm -rf src/nupic/datafiles
 $PREFIX/bin/pip install -r external/common/requirements.txt --no-cache-dir
 $PREFIX/bin/python setup.py install
 popd
@@ -143,6 +159,25 @@ cp -RL $PREFIX $PREFIX.npm
 rm -rf $PREFIX
 
 pushd $PREFIX.npm
+
+# Clean up miniconda
+./bin/python ./bin/conda clean --packages --source-cache --index-cache --tarballs --lock -y
+
+# Remove development headers
+rm -fr ./include
+
+# Remove python sources
+find . -name "*.py" -delete
+
+# Remove test binaries
+rm ./bin/*test
+rm ./bin/*tests
+rm ./bin/hello*
+
+# Remove development binaries
+rm ./bin/capnp*
+rm ./lib/libnupic_core.a
+
 # Copy NPM package information
 cp ${SCRIPT_PATH}/index.js .
 cp ${SCRIPT_PATH}/package.json .

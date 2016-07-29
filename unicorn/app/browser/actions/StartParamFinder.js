@@ -27,6 +27,8 @@ import {ACTIONS} from '../lib/Constants';
  * @TODO: {@ParamFinderService} should save `modelOpts` to database
  */
 export default function (actionContext, payload) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.START_PARAM_FINDER);
+
   let paramFinderClient = actionContext.getParamFinderClient();
   let {inputOpts, metricId} = payload;
 

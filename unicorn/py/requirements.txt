@@ -2,4 +2,4 @@ python-dateutil==2.1
 validictory==0.9.1
 
 # NuPIC HTM. Use version installed with 'portable_python'
-nupic
+nupic==0.5.0

@@ -38,7 +38,8 @@ import validictory
 from unicorn_backend.param_finder import findParameters
 from unicorn_backend.param_finder import MAX_NUM_ROWS
 
-from unicorn_backend import date_time_utils
+from unicorn_backend.utils import date_time_utils
+from unicorn_backend.utils import na
 
 g_log = logging.getLogger(__name__)
 
@@ -175,19 +176,21 @@ def _readCSVFile(fileName,
     samples = []
     numRows = 0
     for row in fileReader:
-      timestamp = date_time_utils.parseDatetime(row[timestampIndex],
-                                                datetimeFormat)
-
-      # use utc timezone if timezone information is not provided
-      if timestamp.tzinfo is None:
-        timestamp = timestamp.replace(tzinfo=tz.tzutc())
-
-      samples.append((timestamp, float(row[valueIndex])))
-
-      numRows += 1
-      if numRows >= MAX_NUM_ROWS:
-        break
-
+      if len(row) > valueIndex:
+        if not (na.isNA(str(row[valueIndex])) or
+         na.isNA(str(row[timestampIndex]))):
+          timestamp = date_time_utils.parseDatetime(row[timestampIndex],
+                                                    datetimeFormat)
+  
+          # use utc timezone if timezone information is not provided
+          if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=tz.tzutc())
+  
+          samples.append((timestamp, float(row[valueIndex])))
+  
+          numRows += 1
+          if numRows >= MAX_NUM_ROWS:
+            break
     return samples
 
 
@@ -196,7 +199,8 @@ def main():
   # message from logger on stderr "No handlers could be found for logger".
   g_log.addHandler(logging.NullHandler())
   try:
-    outputInfo = findParameters(_readCSVFile(**vars(_parseArgs())))
+
+    outputInfo = findParameters(_readCSVFile(**vars( _parseArgs())))
 
     sys.stdout.write(json.dumps(outputInfo))
     sys.stdout.flush()

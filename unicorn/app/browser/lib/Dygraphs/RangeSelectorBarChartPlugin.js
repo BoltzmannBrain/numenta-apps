@@ -15,15 +15,17 @@
 //
 // http://numenta.org/licenses/
 
+import muiTheme from '../MaterialUI/HTMStudioTheme';
 import RGBColor from 'rgbcolor';
 
 import {
-  DATA_FIELD_INDEX, ANOMALY_YELLOW_VALUE
+  DATA_FIELD_INDEX, ANOMALY_YELLOW_VALUE, PROBATION_LENGTH
 } from '../Constants';
-import Dygraph from './DygraphsExtended';
+
+import Dygraph from 'dygraphs';
 import {mapAnomalyColor} from '../browser-utils';
 
-const {DATA_INDEX_ANOMALY} = DATA_FIELD_INDEX;
+const {DATA_INDEX_TIME, DATA_INDEX_ANOMALY} = DATA_FIELD_INDEX;
 
 
 /**
@@ -138,24 +140,60 @@ export default class {
   }
 
   /**
+   * Draws a rectangle highlighting probationary period
+   * @param {Object} context - Dygraph drawing context object
+   * @param {Number} width - Width of rectangle
+   * @param {Number} height - Height of rectangle
+   * @param {String} color - String of color to use for fillRect()
+   */
+  _drawProbationPeriod(context, width, height, color) {
+    context.fillStyle = new RGBColor(color).toRGB();
+    context.fillRect(0, height+2, width, -height);
+  }
+
+  /**
    * Draws the mini plot on the canvas.
    */
-  _drawMiniPlot() {
+  _drawMiniPlot() { // eslint-disable-line max-statements
     let context = this._canvas_context;
     let xExtremes = this._dygraph.xAxisExtremes();
     let xRange = Math.max(xExtremes[1] - xExtremes[0], 1.e-30);
     let margin = 0.5;
     let canvasWidth = this._canvasRect.w - margin;
     let canvasHeight = this._canvasRect.h - margin;
+
+    // During a window resize, sometimes
+    //   this._dygraph.layout_.getPlotArea()
+    // returns negative widths and heights.
+    if (canvasWidth < 0 || canvasHeight < 0) return;
+
     let xFactor = canvasWidth / xRange;
     let previous = {x: null, value: null};
     let stroke = this._getOption('rangeSelectorPlotLineWidth');
-    let data = this._getOption('modelData') || [];
-    let barWidth, color, point, value, x;
+    let data = this._getOption('modelData');
+    let probationColor = muiTheme.palette.accent3Color;
+    let barWidth, color, point, probationWidth, value, x;
 
     if (!data.length) {
       return;  // no data, no draw.
     }
+
+    // Calculate dimensions for, and highlight probation period
+    if (data.length < PROBATION_LENGTH) {
+      probationWidth = canvasWidth;
+    } else {
+      let probationTimeWidth = (
+        data[PROBATION_LENGTH][DATA_INDEX_TIME] - data[0][DATA_INDEX_TIME]
+      );
+      let totalTimeWidth = (
+        data[data.length-1][DATA_INDEX_TIME] - data[0][DATA_INDEX_TIME]
+      );
+      probationWidth = canvasWidth * (probationTimeWidth / totalTimeWidth);
+    }
+
+    this._drawProbationPeriod(
+      context, probationWidth, canvasHeight, probationColor
+    );
 
     barWidth = Math.ceil(data.length / canvasWidth);
 
@@ -321,7 +359,7 @@ export default class {
    */
   _xValueToPixel(x, xMax, xFactor) {
     if (x !== null) {
-      return Math.round((x - xMax) * xFactor, 10);
+      return Math.round((x - xMax) * xFactor);
     }
     return NaN;
   }
@@ -336,7 +374,7 @@ export default class {
    */
   _yValueToPixel(y, yMin, yMax, yFactor) {
     if (y !== null) {
-      return Math.round(yMax - ((y - yMin) * yFactor), 10);
+      return Math.round(yMax - ((y - yMin) * yFactor));
     }
     return NaN;
   }

@@ -4,6 +4,14 @@
     <meta charset="utf-8" />
     <title>HTM Studio | Numenta</title>
     <link rel="stylesheet" type="text/css" href="assets/styles/index.css" />
+    <script>
+      // Global error handler, catching errors with 'bundle.js'
+      window.onerror = (message, file, line, col, error) => {
+        alert(message);
+        // Quit application here. There is nothing left to do.
+        window.close();
+      };
+    </script>
   </head>
   <body>
     <div id="main">

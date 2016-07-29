@@ -28,7 +28,7 @@ import {ACTIONS} from '../lib/Constants';
 export default function (actionContext, modelId) {
   return new Promise((resolve, reject) => {
     let db = actionContext.getDatabaseClient();
-    db.getModelData(modelId, (error, modelData) => {
+    db.getModelData(modelId, 0, (error, modelData) => {
       if (error) {
         actionContext.dispatch(ACTIONS.LOAD_MODEL_DATA_FAILED, error);
         reject(error);

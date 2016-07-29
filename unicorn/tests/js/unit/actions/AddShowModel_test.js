@@ -26,6 +26,7 @@ import AddShowModelAction from '../../../../app/browser/actions/AddShowModel';
 import {DBModelSchema} from '../../../../app/database/schema';
 import {generateMetricId} from '../../../../app/main/generateId';
 import ModelStore from '../../../../app/browser/stores/ModelStore';
+import MockGATracker from './MockGATracker';
 
 const MODEL_INSTANCE = instantiator.instantiate(DBModelSchema);
 
@@ -66,10 +67,13 @@ describe('AddShowModelAction', () => {
     actionContext['getDatabaseClient'] = () => {
       return new MockDatabaseClient();
     }
+    actionContext['getGATracker'] = () => {
+      return new MockGATracker();
+    }
   });
 
-  it('should dispatch ADD_MODEL', (done) => {
-    actionContext.executeAction(AddShowModelAction, EXPECTED_MODEL)
+  it('should dispatch ADD_MODEL', () => {
+    return actionContext.executeAction(AddShowModelAction, EXPECTED_MODEL)
       .then(() => {
         let actual, dispatchCalls, store;
         assert.equal(actionContext.dispatchCalls.length, 1);
@@ -79,11 +83,10 @@ describe('AddShowModelAction', () => {
         store = actionContext.getStore(ModelStore);
         actual = store.getModel(EXPECTED_MODEL.modelId);
         assert.deepEqual(actual, EXPECTED_MODEL);
-        done();
       });
   });
-  it('should dispatch ADD_MODEL_FAILED', (done) => {
-    actionContext.executeAction(AddShowModelAction, null)
+  it('should dispatch ADD_MODEL_FAILED', () => {
+    return actionContext.executeAction(AddShowModelAction, null)
       .catch((error) => {
         let dispatchCalls;
         assert.equal(actionContext.dispatchCalls.length, 1);
@@ -93,7 +96,6 @@ describe('AddShowModelAction', () => {
           error: EXPECTED_ERROR,
           model: null
         });
-        done();
       });
   });
 });

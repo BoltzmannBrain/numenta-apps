@@ -45,7 +45,7 @@ util.inherits(TimeAggregator, Transform);
 
 TimeAggregator.prototype._transform = function (data, encoding, done) {
   if (this._timefield in data) {
-    let timestamp = moment(data[this._timefield]).valueOf();
+    let timestamp = moment.utc(data[this._timefield]).valueOf();
     if (this._timebucket === 0) {
       this._timebucket = timestamp + this._interval;
     } else if (timestamp >= this._timebucket) {

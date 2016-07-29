@@ -61,7 +61,7 @@ android {
             // DynamoDB Server. Use 'http://10.0.2.2:8000' for local server or null for AWS
             buildConfigField 'String', 'SERVER_URL', System.getProperty("SERVER_URL") != null ? "\"${System.getProperty("SERVER_URL")}\"" : 'null'
             // Select DynamoDB tables to use. Use ".production" or your user name as suffix.
-            // Should match server configuration in "$/products/taurus/conf/application.conf"
+            // Should match server configuration in "$/numenta-apps/taurus_engine/conf/application.conf"
             buildConfigField 'String', 'TABLE_SUFFIX', '".staging"' //'".' + System.getProperty("user.name") + '"'
             // AWS Region to connect
             buildConfigField 'String', 'REGION', '"us-west-2"'
@@ -71,7 +71,7 @@ android {
         release {
             buildConfigField 'String', 'SERVER_URL', 'null'
             // Use production DynamoDB tables
-            // Should match server configuration in "$/products/taurus/conf/application.conf"
+            // Should match server configuration in "$/numenta-apps/taurus_engine/conf/application.conf"
             buildConfigField 'String', 'TABLE_SUFFIX', '".production"'
             // AWS Region to connect
             buildConfigField 'String', 'REGION', '"us-west-2"'
@@ -86,7 +86,7 @@ android {
         staging.initWith(buildTypes.qa)
         staging {
             // Use staging DynamoDB tables instead of production
-            // Should match server configuration in "$/products/taurus/conf/application.conf"
+            // Should match server configuration in "$/numenta-apps/taurus_engine/conf/application.conf"
             buildConfigField 'String', 'TABLE_SUFFIX', '".staging"'
             versionNameSuffix '-' + defaultConfig.versionCode + '-' + gitCommitSHA + '-staging';
         }

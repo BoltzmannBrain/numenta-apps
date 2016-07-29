@@ -54,11 +54,16 @@ const EXPECTED_FILENAME_ID = generateFileId(EXPECTED_FILENAME);
 const EXPECTED_METRIC_ID = generateMetricId(EXPECTED_FILENAME, 'metric');
 const EXPECTED_TIMESTAMP_ID = generateMetricId(EXPECTED_FILENAME, 'timestamp');
 
+const NA_CSV_FILE = path.join(FIXTURES, 'na.csv');
+const NA_CSV_FILE_ID = generateFileId(NA_CSV_FILE);
+// const NA_CSV_METRIC_ID = generateMetricId(NA_CSV_FILE , 'metric');
+// const NA_CSV_FILE_TIMESTAMP_ID = generateMetricId(NA_CSV_FILE , 'timestamp');
+
 const EXPECTED_FILE = Object.assign({}, INSTANCES.File, {
   filename: EXPECTED_FILENAME,
   name: path.basename(EXPECTED_FILENAME),
   uid: EXPECTED_FILENAME_ID,
-  records: 7
+  records: 400
 });
 
 const EXPECTED_FILE_WITH_OPTIONAL_FIELDS = Object.assign({}, EXPECTED_FILE, {
@@ -81,7 +86,7 @@ const EXPECTED_METRIC = Object.assign({}, INSTANCES.Metric, {
   type: 'number'
 });
 
-const EXPECTED_TIMESTAMP =  Object.assign({}, INSTANCES.Metric, {
+const EXPECTED_TIMESTAMP = Object.assign({}, INSTANCES.Metric, {
   uid: EXPECTED_TIMESTAMP_ID,
   file_uid: EXPECTED_FILENAME_ID,
   index: 0,
@@ -93,15 +98,27 @@ const EXPECTED_TIMESTAMP =  Object.assign({}, INSTANCES.Metric, {
 const EXPECTED_METRICS = [EXPECTED_TIMESTAMP, EXPECTED_METRIC];
 
 const EXPECTED_METRIC_DATA = [
-  {metric_uid: EXPECTED_METRIC_ID, timestamp: 1440557191000, metric_value: 21},
-  {metric_uid: EXPECTED_METRIC_ID, timestamp: 1440557251000, metric_value: 17},
-  {metric_uid: EXPECTED_METRIC_ID, timestamp: 1440557311000, metric_value: 22},
-  {metric_uid: EXPECTED_METRIC_ID, timestamp: 1440557371000, metric_value: 21},
-  {metric_uid: EXPECTED_METRIC_ID, timestamp: 1440557431000, metric_value: 16},
-  {metric_uid: EXPECTED_METRIC_ID, timestamp: 1440557491000, metric_value: 19}
+  {naive_time: Date.parse('2015-08-26T19:46:09Z'),
+   iso_timestamp: '2015-08-26T19:46:09.000000+17:00',
+   metric_value: 21},
+  {naive_time: Date.parse('2015-08-26T19:47:31Z'),
+   iso_timestamp: '2015-08-26T19:47:31.000000+17:00',
+   metric_value: 17},
+  {naive_time: Date.parse('2015-08-26T19:48:31Z'),
+   iso_timestamp: '2015-08-26T19:48:31.000000+17:00',
+   metric_value: 22},
+  {naive_time: Date.parse('2015-08-26T19:49:31Z'),
+   iso_timestamp: '2015-08-26T19:49:31.000000+17:00',
+   metric_value: 21},
+  {naive_time: Date.parse('2015-08-26T19:50:31Z'),
+   iso_timestamp: '2015-08-26T19:50:31.000000+17:00',
+   metric_value: 16},
+  {naive_time: Date.parse('2015-08-26T19:51:31Z'),
+   iso_timestamp: '2015-08-26T19:51:31.000000+17:00',
+   metric_value: 19}
 ];
 
-const NO_HEADER_CSV_FILE = path.join(FIXTURES, 'no-header.csv');
+const NO_HEADER_CSV_FILE = path.join(FIXTURES, 'no-header-no-tz.csv');
 const NO_HEADER_CSV_FILE_ID = generateFileId(NO_HEADER_CSV_FILE);
 const EXPECTED_NO_HEADER_CSV_FILE = Object.assign({}, INSTANCES.File, {
   filename: NO_HEADER_CSV_FILE,
@@ -118,7 +135,7 @@ const EXPECTED_FIELDS_NO_HEADER_CSV_FILE = [
     name: 'timestamp',
     index: 0,
     type: 'date',
-    format: 'YYYY-MM-DDTHH:mm:ssZ'
+    format: 'YYYY-MM-DDTHH:mm:ss'
   }),
   Object.assign({}, INSTANCES.Metric, {
     uid: generateMetricId(NO_HEADER_CSV_FILE, 'metric2'),
@@ -164,7 +181,7 @@ const EXPECTED_FIELDS_IGNORE_FIELDS_FILE = [
 ];
 
 const EXPECTED_METRIC_DATA_RESULT = EXPECTED_METRIC_DATA.map((data) => [
-  data.timestamp, data.metric_value
+  data.naive_time, data.metric_value
 ]);
 
 const EXPECTED_METRIC_WITH_INPUT = Object.assign({}, EXPECTED_METRIC, {
@@ -185,43 +202,94 @@ const EXPECTED_METRIC_WITH_INPUT_AGG_MODEL = Object.assign({}, EXPECTED_METRIC, 
   model_options: MODEL_OPTIONS
 });
 
-const BATCH_MODEL_DATA = Array.from([
-  1440557251000,
-  1440557311000,
-  1440557371000,
-  1440557431000
-], (timestamp) => {
-  return Object.assign({}, INSTANCES.ModelData, {
-    metric_uid: EXPECTED_METRIC_ID,
-    metric_value: 1,
+const BATCH_MODEL_DATA = [
+  {
+    metric_value: 42,
     anomaly_score: 1,
-    timestamp
-  });
-});
+    naive_time: Date.parse('2015-08-26T02:47:09Z'),
+    iso_timestamp: '2015-08-26T02:47:09.000000+08:00'
+  },
+  {
+    metric_value: 43,
+    anomaly_score: 1,
+    naive_time: Date.parse('2015-08-26T02:48:31Z'),
+    iso_timestamp: '2015-08-26T02:48:31.000000+08:00'
+  },
+  {
+    metric_value: 44,
+    anomaly_score: 1,
+    naive_time: Date.parse('2015-08-26T02:49:31Z'),
+    iso_timestamp: '2015-08-26T02:49:31.000000+08:00'
+  },
+  {
+    metric_value: 45,
+    anomaly_score: 1,
+    naive_time: Date.parse('2015-08-26T02:50:31Z'),
+    iso_timestamp: '2015-08-26T02:50:31.000000+08:00'
+  }
+];
 
-const EXPECTED_MODEL_DATA = Array.from([
-  1440557251000,
-  1440557311000,
-  1440557371000,
-  1440557431000
-], (timestamp) => [timestamp, 1, 1]);
-
+const EXPECTED_MODEL_DATA = BATCH_MODEL_DATA.map(
+  (d) => [d.naive_time, d.metric_value, d.anomaly_score]);
 
 const EXPECTED_EXPORTED_RESULTS =
-`timestamp,metric_value,anomaly_score
-2015-08-26T02:47:31.000Z,1,1
-2015-08-26T02:48:31.000Z,1,1
-2015-08-26T02:49:31.000Z,1,1
-2015-08-26T02:50:31.000Z,1,1`;
+  `timestamp,metric_value,anomaly_level,raw_anomaly_score
+2015-08-26T02:47:09+08:00,42,N/A,1
+2015-08-26T02:48:31+08:00,43,N/A,1
+2015-08-26T02:49:31+08:00,44,HIGH,1
+2015-08-26T02:50:31+08:00,45,HIGH,1`;
 
-const TEMP_DIR = path.join(os.tmpDir(), 'unicorn_db');
-const EXPORTED_FILENAME = path.join(TEMP_DIR, 'file.csv');
+const TEMP_DB_DIR = path.join(os.tmpDir(), 'unicorn_db');
+const TEMP_CACHE_DIR = path.join(os.tmpDir(), 'unicorn_files');
+
+const BATCH_MODEL_DATA_NO_TZ = [
+  {
+    metric_value: 42,
+    anomaly_score: 1,
+    naive_time: Date.parse('2015-08-26T02:47:09Z'),
+    iso_timestamp: '2015-08-26T02:47:09.000000'
+  },
+  {
+    metric_value: 43,
+    anomaly_score: 1,
+    naive_time: Date.parse('2015-08-26T02:48:31Z'),
+    iso_timestamp: '2015-08-26T02:48:31.000000'
+  },
+  {
+    metric_value: 44,
+    anomaly_score: 1,
+    naive_time: Date.parse('2015-08-26T02:49:31Z'),
+    iso_timestamp: '2015-08-26T02:49:31.000000'
+  },
+  {
+    metric_value: 45,
+    anomaly_score: 1,
+    naive_time: Date.parse('2015-08-26T02:50:31Z'),
+    iso_timestamp: '2015-08-26T02:50:31.000000'
+  }
+];
+
+const EXPECTED_EXPORTED_RESULTS_NO_TZ =
+  `timestamp,metric_value,anomaly_level,raw_anomaly_score
+2015-08-26T02:47:09,42,N/A,1
+2015-08-26T02:48:31,43,N/A,1
+2015-08-26T02:49:31,44,HIGH,1
+2015-08-26T02:50:31,45,HIGH,1`;
+
+const EXPECTED_TIMESTAMP_NO_TZ = Object.assign({}, INSTANCES.Metric, {
+  uid: EXPECTED_TIMESTAMP_ID,
+  file_uid: EXPECTED_FILENAME_ID,
+  index: 0,
+  name: 'timestamp',
+  type: 'date',
+  format: 'YYYY-MM-DDTHH:mm:ss'
+});
 
 describe('DatabaseService:', () => {
   let service;
 
   before(() => {
-    service = new DatabaseService(TEMP_DIR);
+    service = new DatabaseService(TEMP_DB_DIR, TEMP_CACHE_DIR);
   });
   after(() => {
     service.close((err) => assert.ifError(err));
@@ -328,7 +396,9 @@ describe('DatabaseService:', () => {
         assert.ifError(error);
         service.getFile(EXPECTED_FILENAME_ID, (error, actual) => {
           assert.ifError(error);
-          assert.deepStrictEqual(JSON.parse(actual), EXPECTED_FILE);
+          let filename = path.join(TEMP_CACHE_DIR, path.basename(EXPECTED_FILE.filename));
+          let expected = Object.assign(EXPECTED_FILE, {filename});
+          assert.deepStrictEqual(JSON.parse(actual), expected);
           assert.ifError(error);
           service.getMetricsByFile(EXPECTED_FILENAME_ID, (error, actual) => {
             assert.ifError(error);
@@ -336,8 +406,10 @@ describe('DatabaseService:', () => {
             service.getMetricData(EXPECTED_METRIC_ID, (error, actual) => {
               assert.ifError(error);
               let data =  JSON.parse(actual);
-              assert.equal(data.length, EXPECTED_METRIC_DATA.length);
-              assert.deepStrictEqual(data, EXPECTED_METRIC_DATA_RESULT);
+              assert.equal(data.length, 399);
+              let testDataLength = EXPECTED_METRIC_DATA_RESULT.length;
+              assert.deepStrictEqual(data.slice(0,testDataLength),
+               EXPECTED_METRIC_DATA_RESULT);
               done();
             })
           });
@@ -349,7 +421,9 @@ describe('DatabaseService:', () => {
         assert.ifError(error);
         service.getFile(NO_HEADER_CSV_FILE_ID, (error, actual) => {
           assert.ifError(error);
-          assert.deepStrictEqual(JSON.parse(actual), EXPECTED_NO_HEADER_CSV_FILE);
+          let filename = path.join(TEMP_CACHE_DIR, path.basename(EXPECTED_NO_HEADER_CSV_FILE.filename));
+          let expected = Object.assign(EXPECTED_NO_HEADER_CSV_FILE, {filename});
+          assert.deepStrictEqual(JSON.parse(actual), expected);
           assert.ifError(error);
           service.getMetricsByFile(NO_HEADER_CSV_FILE_ID, (error, actual) => {
             assert.ifError(error);
@@ -364,12 +438,32 @@ describe('DatabaseService:', () => {
         assert.ifError(error);
         service.getFile(IGNORE_FIELDS_FILE_ID, (error, actual) => {
           assert.ifError(error);
-          assert.deepStrictEqual(JSON.parse(actual), EXPECTED_IGNORE_FIELDS_FILE);
+          let filename = path.join(TEMP_CACHE_DIR, path.basename(EXPECTED_IGNORE_FIELDS_FILE.filename));
+          let expected = Object.assign(EXPECTED_IGNORE_FIELDS_FILE, {filename});
+          assert.deepStrictEqual(JSON.parse(actual), expected);
           assert.ifError(error);
           service.getMetricsByFile(IGNORE_FIELDS_FILE_ID, (error, actual) => {
             assert.ifError(error);
             assert.deepStrictEqual(JSON.parse(actual), EXPECTED_FIELDS_IGNORE_FIELDS_FILE);
             done();
+          });
+        });
+      });
+    });
+    it('should upload file with missing values to the database', (done) => {
+      service.uploadFile(NA_CSV_FILE, (error, file) => {
+        assert.ifError(error);
+        service.getFile(NA_CSV_FILE_ID, (error, actual) => {
+          assert.ifError(error);
+          service.getMetricsByFile(NA_CSV_FILE_ID, (error, actual) => {
+            assert.ifError(error);
+            let metricinfo = JSON.parse(actual).find((column) => column.index === 1);
+            assert.equal(typeof metricinfo === undefined, false); // eslint-disable-line
+            service.getMetricData(metricinfo.uid, (error, data) => {
+              assert.ifError(error);
+              assert.equal(JSON.parse(data).length, 530)
+              done();
+            });
           });
         });
       });
@@ -392,29 +486,6 @@ describe('DatabaseService:', () => {
               });
             });
           });
-        })
-      });
-    });
-    it('should delete file by id from the database', (done) => {
-      service.uploadFile(EXPECTED_FILENAME, (error, file) => {
-        service.uploadFile(EXPECTED_FILENAME, (error, file) => {
-          assert.ifError(error);
-          service.deleteFileById(EXPECTED_FILENAME_ID, (error) => {
-            assert.ifError(error);
-            service.getFile(EXPECTED_FILENAME_ID, (error, actual) => {
-              assert(error && error.type === 'NotFoundError',
-                'File was not deleted');
-              service.getMetricsByFile(EXPECTED_FILENAME_ID, (error, actual) => {
-                assert.ifError(error);
-                assert.equal(JSON.parse(actual).length, 0);
-                service.getMetricData(EXPECTED_METRIC_ID, (error, actual) => {
-                  assert.ifError(error);
-                  assert.equal(JSON.parse(actual).length, 0);
-                  done();
-                });
-              });
-            });
-          })
         });
       });
     });
@@ -481,31 +552,33 @@ describe('DatabaseService:', () => {
           done();
         });
       });
-    })
+    });
     it('should delete metric from the database', (done) => {
       // Add metric
       service.putMetric(EXPECTED_METRIC, (error) => {
         assert.ifError(error);
         // Add data
-        service.putMetricDataBatch(EXPECTED_METRIC_DATA, (error) => {
-          assert.ifError(error);
-          // Delete metric
-          service.deleteMetric(EXPECTED_METRIC.uid, (error) => {
+        service.putMetricDataBatch(
+          EXPECTED_METRIC_ID, 0, EXPECTED_METRIC_DATA,
+          (error) => {
             assert.ifError(error);
-            service.getMetric(EXPECTED_METRIC.uid, (error, actual) => {
-              // Make sure metric was deleted
-              assert(
-                error && error.type === 'NotFoundError',
-                'Metric was not deleted'
-              );
-              // Make sure data was deleted
-              service.getMetricData(EXPECTED_METRIC.uid, (error, actual) => {
-                assert(JSON.parse(actual).length === 0, 'MetricData was not deleted');
-                done();
+            // Delete metric
+            service.deleteMetric(EXPECTED_METRIC.uid, (error) => {
+              assert.ifError(error);
+              service.getMetric(EXPECTED_METRIC.uid, (error, actual) => {
+                // Make sure metric was deleted
+                assert(
+                  error && error.type === 'NotFoundError',
+                  'Metric was not deleted'
+                );
+                // Make sure data was deleted
+                service.getMetricData(EXPECTED_METRIC.uid, (error, actual) => {
+                  assert(JSON.parse(actual).length === 0, 'MetricData was not deleted');
+                  done();
+                });
               });
             });
           });
-        });
       });
     });
     it('should delete metrics by file from the database', (done) => {
@@ -513,21 +586,23 @@ describe('DatabaseService:', () => {
       service.putMetric(EXPECTED_METRIC, (error) => {
         assert.ifError(error);
         // Add data
-        service.putMetricDataBatch(EXPECTED_METRIC_DATA, (error) => {
-          assert.ifError(error);
-          // Delete metric
-          service.deleteMetricsByFile(EXPECTED_METRIC.file_uid, (error) => {
+        service.putMetricDataBatch(
+          EXPECTED_METRIC_ID, 0, EXPECTED_METRIC_DATA,
+          (error) => {
             assert.ifError(error);
-            service.getMetric(EXPECTED_METRIC.uid, (error, actual) => {
-              // Make sure metric was deleted
-              assert(
-                error && error.type === 'NotFoundError',
-                'Metric was not deleted'
-              );
-              done();
+            // Delete metric
+            service.deleteMetricsByFile(EXPECTED_METRIC.file_uid, (error) => {
+              assert.ifError(error);
+              service.getMetric(EXPECTED_METRIC.uid, (error, actual) => {
+                // Make sure metric was deleted
+                assert(
+                  error && error.type === 'NotFoundError',
+                  'Metric was not deleted'
+                );
+                done();
+              });
             });
           });
-        });
       });
     });
     it('should update metric aggregation options for metric', (done) => {
@@ -553,7 +628,7 @@ describe('DatabaseService:', () => {
             assert.deepStrictEqual(JSON.parse(actual), EXPECTED_METRIC_WITH_MODEL);
             done();
           });
-        })
+        });
       });
     });
     it('should update input options for metric', (done) => {
@@ -566,7 +641,7 @@ describe('DatabaseService:', () => {
             assert.deepStrictEqual(JSON.parse(actual), EXPECTED_METRIC_WITH_INPUT);
             done();
           });
-        })
+        });
       });
     });
     it('should update metric', (done) => {
@@ -590,55 +665,67 @@ describe('DatabaseService:', () => {
 
   describe('MetricData:', () => {
     it('should add a single MetricData record to the database', (done) => {
-      service.putMetricData(EXPECTED_METRIC_DATA[0], (error) => {
-        assert.ifError(error);
-        done();
-      });
+      service.putMetricData(
+        EXPECTED_METRIC_ID, 0, EXPECTED_METRIC_DATA[0],
+        (error) => {
+          assert.ifError(error);
+          done();
+        });
     });
     it('should not add invalid MetricData record to the database', (done) => {
       let invalid = Object.assign({}, EXPECTED_METRIC_DATA[0]);
-      delete invalid.timestamp;
-      service.putMetricData(invalid, (error) => {
-        assert(error, 'Invalid MetricData was created');
-        done();
-      });
-    });
-    it('should add multiple MetricData records to the database', (done) => {
-      service.putMetricDataBatch(EXPECTED_METRIC_DATA, (error) => {
-        assert.ifError(error);
-        done();
-      });
-    });
-    it('should load multiple MetricData records from the database', (done) => {
-      service.putMetricDataBatch(EXPECTED_METRIC_DATA, (error) => {
-        assert.ifError(error);
-        service.getMetricData(EXPECTED_METRIC_ID, (error, actual) => {
-          assert.ifError(error);
-          assert.deepStrictEqual(JSON.parse(actual), EXPECTED_METRIC_DATA_RESULT);
+      delete invalid.iso_timestamp;
+      service.putMetricData(
+        EXPECTED_METRIC_ID, 0, invalid,
+        (error) => {
+          assert(error, 'Invalid MetricData was created');
           done();
         });
-      });
+    });
+    it('should add multiple MetricData records to the database', (done) => {
+      service.putMetricDataBatch(
+        EXPECTED_METRIC_ID, 0, EXPECTED_METRIC_DATA,
+        (error) => {
+          assert.ifError(error);
+          done();
+        });
+    });
+    it('should load multiple MetricData records from the database', (done) => {
+      service.putMetricDataBatch(
+        EXPECTED_METRIC_ID, 0, EXPECTED_METRIC_DATA,
+        (error) => {
+          assert.ifError(error);
+          service.getMetricData(EXPECTED_METRIC_ID, (error, actual) => {
+            assert.ifError(error);
+            assert.deepStrictEqual(JSON.parse(actual), EXPECTED_METRIC_DATA_RESULT);
+            done();
+          });
+        });
     });
     it('should delete MetricData from the database', (done) => {
       // Add data
-      service.putMetricDataBatch(EXPECTED_METRIC_DATA, (error) => {
-        assert.ifError(error);
-        // Make sure data exist
-        service.getMetricData(EXPECTED_METRIC_ID, (error, actual) => {
+      service.putMetricDataBatch(
+        EXPECTED_METRIC_ID, 0, EXPECTED_METRIC_DATA,
+        (error) => {
           assert.ifError(error);
-          assert.deepStrictEqual(JSON.parse(actual), EXPECTED_METRIC_DATA_RESULT);
-          // Delete data
-          service.deleteMetricData(EXPECTED_METRIC_ID, (error) => {
-            assert.ifError(error);
-            // Make sure data was deleted
-            service.getMetricData(EXPECTED_METRIC_ID, (error, actual) => {
+          // Make sure data exist
+          service.getMetricData(
+            EXPECTED_METRIC_ID, (error, actual) => {
               assert.ifError(error);
-              assert.equal(JSON.parse(actual).length, 0);
-              done();
+              assert.deepStrictEqual(JSON.parse(actual),
+                                     EXPECTED_METRIC_DATA_RESULT);
+              // Delete data
+              service.deleteMetricData(EXPECTED_METRIC_ID, (error) => {
+                assert.ifError(error);
+                // Make sure data was deleted
+                service.getMetricData(EXPECTED_METRIC_ID, (error, actual) => {
+                  assert.ifError(error);
+                  assert.equal(JSON.parse(actual).length, 0);
+                  done();
+                });
+              });
             });
-          });
         });
-      });
     });
   });
 
@@ -692,25 +779,27 @@ describe('DatabaseService:', () => {
       service.putModel(EXPECTED_MODEL, (error) => {
         assert.ifError(error);
         // Add data
-        service.putModelDataBatch(BATCH_MODEL_DATA, (error) => {
-          assert.ifError(error);
-          // Delete model
-          service.deleteModel(EXPECTED_MODEL.uid, (error) => {
+        service.putModelDataBatch(
+          EXPECTED_METRIC_ID, 0, BATCH_MODEL_DATA,
+          (error) => {
             assert.ifError(error);
-            service.getModel(EXPECTED_MODEL.uid, (error, actual) => {
-              // Make sure model was deleted
-              assert(
-                error && error.type === 'NotFoundError',
-                'Model was not deleted'
-              );
-              // Make sure data was deleted
-              service.getModelData(EXPECTED_MODEL.uid, (error, actual) => {
-                assert(JSON.parse(actual).length === 0, 'ModelData was not deleted');
-                done();
+            // Delete model
+            service.deleteModel(EXPECTED_MODEL.uid, (error) => {
+              assert.ifError(error);
+              service.getModel(EXPECTED_MODEL.uid, (error, actual) => {
+                // Make sure model was deleted
+                assert(
+                  error && error.type === 'NotFoundError',
+                  'Model was not deleted'
+                );
+                // Make sure data was deleted
+                service.getModelData(EXPECTED_MODEL.uid, 0, (error, actual) => {
+                  assert(JSON.parse(actual).length === 0, 'ModelData was not deleted');
+                  done();
+                });
               });
             });
           });
-        });
       });
     });
     it('should update model', (done) => {
@@ -734,71 +823,112 @@ describe('DatabaseService:', () => {
 
   describe('ModelData:', () => {
     it('should add a single ModelData record to the database', (done) => {
-      service.putModelData(BATCH_MODEL_DATA[0], (error) => {
-        assert.ifError(error);
-        done();
-      });
+      service.putModelData(
+        EXPECTED_METRIC_ID, 0, BATCH_MODEL_DATA[0],
+        (error) => {
+          assert.ifError(error);
+          done();
+        });
     });
     it('should not add invalid ModelData record to the database', (done) => {
       let invalid = Object.assign({}, BATCH_MODEL_DATA[0]);
       delete invalid.anomaly_score;
-      service.putModelData(invalid, (error) => {
-        assert(error, 'Invalid ModelData was created');
-        done();
-      });
-    });
-    it('should add multiple ModelData records to the database', (done) => {
-      service.putModelDataBatch(BATCH_MODEL_DATA, (error) => {
-        assert.ifError(error);
-        done();
-      });
-    });
-    it('should load multiple ModelData records from the database', (done) => {
-      service.putModelDataBatch(BATCH_MODEL_DATA, (error) => {
-        assert.ifError(error);
-        service.getModelData(EXPECTED_METRIC_ID, (error, actual) => {
-          assert.ifError(error);
-          assert.deepStrictEqual(JSON.parse(actual), EXPECTED_MODEL_DATA);
+      service.putModelData(
+        EXPECTED_METRIC_ID, 0, invalid,
+        (error) => {
+          assert(error, 'Invalid ModelData was created');
           done();
         });
-      });
     });
-    it('should export ModelData from the database', (done) => {
-      after(() => {
-        fs.unlinkSync(EXPORTED_FILENAME); // eslint-disable-line no-sync
-      });
-      service.putModelDataBatch(BATCH_MODEL_DATA, (error) => {
-        assert.ifError(error);
-        service.exportModelData(EXPECTED_METRIC_ID, EXPORTED_FILENAME, (error, res) => {
+    it('should add multiple ModelData records to the database', (done) => {
+      service.putModelDataBatch(
+        EXPECTED_METRIC_ID, 0, BATCH_MODEL_DATA,
+        (error) => {
           assert.ifError(error);
-          fs.readFile(EXPORTED_FILENAME, 'utf8', (error, data) => {
+          done();
+        });
+    });
+    it('should load multiple ModelData records from the database', (done) => {
+      service.putModelDataBatch(
+        EXPECTED_METRIC_ID, 0, BATCH_MODEL_DATA,
+        (error) => {
+          assert.ifError(error);
+          service.getModelData(EXPECTED_METRIC_ID, 0, (error, actual) => {
             assert.ifError(error);
-            assert.equal(data, EXPECTED_EXPORTED_RESULTS);
+            assert.deepStrictEqual(JSON.parse(actual), EXPECTED_MODEL_DATA);
             done();
           });
         });
-      });
     });
+    it('should export ModelData from the database (time zone: yes)', (done) => {
+      const EXPORTED_FILENAME = path.join(TEMP_DB_DIR, 'file.csv');
+      after(() => {
+        fs.unlinkSync(EXPORTED_FILENAME); // eslint-disable-line no-sync
+      });
+      service.putModelDataBatch(
+        EXPECTED_METRIC_ID, 0, BATCH_MODEL_DATA,
+        (error) => {
+          assert.ifError(error);
+
+          service.exportModelData(
+            EXPECTED_METRIC_ID, EXPORTED_FILENAME, EXPECTED_TIMESTAMP.format, 2,
+            (error, res) => {
+              assert.ifError(error);
+              fs.readFile(EXPORTED_FILENAME, 'utf8', (error, data) => {
+                assert.ifError(error);
+                assert.equal(data, EXPECTED_EXPORTED_RESULTS);
+                done();
+              });
+            });
+        });
+    });
+
+    it('should export ModelData from the database (time zone: no)', (done) => {
+      const EXPORTED_FILENAME = path.join(TEMP_DB_DIR, 'file2.csv');
+      after(() => {
+        fs.unlinkSync(EXPORTED_FILENAME); // eslint-disable-line no-sync
+      });
+      service.putModelDataBatch(
+        EXPECTED_METRIC_ID, 0, BATCH_MODEL_DATA_NO_TZ,
+        (error) => {
+          assert.ifError(error);
+
+          service.exportModelData(
+            EXPECTED_METRIC_ID, EXPORTED_FILENAME,
+            EXPECTED_TIMESTAMP_NO_TZ.format, 2,
+            (error, res) => {
+              assert.ifError(error);
+              fs.readFile(EXPORTED_FILENAME, 'utf8', (error, data) => {
+                assert.ifError(error);
+                assert.equal(data, EXPECTED_EXPORTED_RESULTS_NO_TZ);
+                done();
+              });
+            });
+        });
+    });
+
     it('should delete ModelData from the database', (done) => {
       // Add data
-      service.putModelDataBatch(BATCH_MODEL_DATA, (error) => {
-        assert.ifError(error);
-        // Make sure data exist
-        service.getModelData(EXPECTED_METRIC_ID, (error, actual) => {
+      service.putModelDataBatch(
+        EXPECTED_METRIC_ID, 0, BATCH_MODEL_DATA,
+        (error) => {
           assert.ifError(error);
-          assert.equal(JSON.parse(actual).length, BATCH_MODEL_DATA.length);
-          // Delete data
-          service.deleteModelData(EXPECTED_METRIC_ID, (error) => {
+          // Make sure data exist
+          service.getModelData(EXPECTED_METRIC_ID, 0, (error, actual) => {
             assert.ifError(error);
-            // Make sure data was deleted
-            service.getModelData(EXPECTED_METRIC_ID, (error, actual) => {
+            assert.equal(JSON.parse(actual).length, BATCH_MODEL_DATA.length);
+            // Delete data
+            service.deleteModelData(EXPECTED_METRIC_ID, (error) => {
               assert.ifError(error);
-              assert.equal(JSON.parse(actual).length, 0);
-              done();
+              // Make sure data was deleted
+              service.getModelData(EXPECTED_METRIC_ID, 0, (error, actual) => {
+                assert.ifError(error);
+                assert.equal(JSON.parse(actual).length, 0);
+                done();
+              });
             });
           });
         });
-      });
     });
   });
 });

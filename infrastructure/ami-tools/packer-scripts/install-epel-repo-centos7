@@ -35,7 +35,7 @@ sudo yum remove -y epel-release
 sudo yum install -y ca-certificates
 
 # Now that our certificates are current, we can reinstall epel
-sudo rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+sudo rpm -iUvh http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-6.noarch.rpm
 
 # We don't want testing rpms on HTM-IT servers
 sudo rm -f /etc/yum.repos.d/epel-testing.repo

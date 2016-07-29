@@ -17,10 +17,9 @@
 // http://numenta.org/licenses/
 
 import {app, BrowserWindow, crashReporter, dialog, Menu} from 'electron';
-import bunyan from 'bunyan';
-import moment from 'moment';
 import path from 'path';
 
+import AutoUpdate from './AutoUpdate';
 import config from './ConfigService';
 import database from './DatabaseService';
 import fileService from './FileService';
@@ -30,17 +29,15 @@ import MainMenu from './MainMenu';
 import ModelServiceIPC from './ModelServiceIPC';
 import ParamFinderServiceIPC from './ParamFinderServiceIPC';
 import {promisify} from '../common/common-utils';
+import log from './Logger'
 
-const log = bunyan.createLogger({
-  level: 'debug',  // @TODO higher for Production
-  name: config.get('title')
-});
 const initialPage = path.join(__dirname, config.get('browser:entry'));
 
 let activeModels = new Map();  // Active models and their event handlers
 let mainWindow = null;  // global ref to keep window object from JS GC
 let modelServiceIPC = null;
 let paramFinderServiceIPC = null;
+let updater = null;
 
 
 /**
@@ -70,29 +67,28 @@ function initializeApplicationData() {
 
 /**
  * Handles model data event saving the results to the database
- * @param  {string} modelId Model receiving data
- * @param  {Array} data    model data in the following format:
- *                         [timestamp, metric_value, anomaly_score]
+ * @param {string} modelId - Model receiving data
+ * @param {number} recordIndex - Result index
+ * @param {Object} modelData - Parsed model data
+ * @param {Object} modelServiceIPC - Communication channel to browser
  */
-function receiveModelData(modelId, data) {
-  let [timestamp, value, score] = data; // eslint-disable-line
-  let metricData = {
-    metric_uid: modelId,
-    timestamp: moment(timestamp).valueOf(),
-    metric_value: value,
-    anomaly_score: score
-  };
-  database.putModelData(metricData, (error) => {
-    if (error) {
-      log.error('Error saving model data', error, metricData);
+function receiveModelData(modelId, recordIndex, modelData, modelServiceIPC) {
+  database.putModelData(modelId, recordIndex, modelData, (err) => {
+    if (err) {
+      log.error({err, modelId, recordIndex, modelData},
+        'Error saving model data');
+    } else {
+      modelServiceIPC._notifyNewModelResult(modelId);
     }
   });
 }
 
 /**
  * Handle application wide model services events
+ *
+ * @param {Object} modelServiceIPC - Communication channel to browser
  */
-function handleModelEvents() {
+function handleModelEvents(modelServiceIPC) {
   // Attach event handler on model creation
   modelService.on('newListener', (modelId, listener) => {
     if (!activeModels.has(modelId)) {
@@ -100,10 +96,11 @@ function handleModelEvents() {
         try {
           if (command === 'data') {
             // Handle model data
-            receiveModelData(modelId, JSON.parse(data));
+            let [index, modelData] = data;
+            receiveModelData(modelId, index, modelData, modelServiceIPC);
           }
-        } catch (e) {
-          log.error('Model Error', e, modelId, command, data);
+        } catch (err) {
+          log.error({err, modelId, command, data}, 'Model Error');
         }
       };
       activeModels.set(modelId, listener);
@@ -139,11 +136,22 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 
+const shouldQuit = app.makeSingleInstance((commandLine, workingDirectory) => {
+  // Someone tried to run a second instance, we should focus our window.
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.focus();
+  }
+});
+
+if (shouldQuit) {
+  app.quit();
+}
+
 // Electron finished init and ready to create browser window
 app.on('ready', () => {
-  // Initialize application data
-  initializeApplicationData();
-
   // set main menu
   Menu.setApplicationMenu(Menu.buildFromTemplate(MainMenu));
 
@@ -164,21 +172,38 @@ app.on('ready', () => {
 
   // browser window web contents events
   mainWindow.webContents.on('crashed', () => {
+    log.error(new Error('Application crashed'));
     dialog.showErrorBox('Error', 'Application crashed');
   });
   mainWindow.webContents.on('did-fail-load', () => {
+    log.error(new Error('Application failed to load'));
     dialog.showErrorBox('Error', 'Application failed to load');
   });
   mainWindow.webContents.on('dom-ready', () => {
     log.info('Electron Main: Renderer DOM is now ready!');
   });
 
-  // Handle model service events
-  handleModelEvents();
+  // Handle Auto Update events
+  // Updater is only avaialbe is release mode, when the app is properly signed
+  let environment = config.get('env');
+  if (environment === 'prod') {
+    updater = new AutoUpdate(mainWindow);
+  }
+  mainWindow.webContents.once('did-frame-finish-load', (event) => {
+    // Check for updates
+    if (updater) {
+      updater.checkForUpdates();
+    }
+    // Initialize application data
+    initializeApplicationData();
+  });
 
   // Handle IPC communication for the ModelService
   modelServiceIPC = new ModelServiceIPC(modelService);
   modelServiceIPC.start(mainWindow.webContents);
+
+  // Handle model service events
+  handleModelEvents(modelServiceIPC);
 
   // Handle IPC communication for the ParamFinderService
   paramFinderServiceIPC = new ParamFinderServiceIPC(paramFinderService);

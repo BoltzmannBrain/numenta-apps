@@ -24,5 +24,7 @@ import {ACTIONS} from '../lib/Constants';
  * @emits {HIDE_CREATE_MODEL_DIALOG}
  */
 export default function (actionContext) {
+  actionContext.getGATracker().event('ACTION',
+    ACTIONS.HIDE_CREATE_MODEL_DIALOG);
   actionContext.dispatch(ACTIONS.HIDE_CREATE_MODEL_DIALOG);
 }

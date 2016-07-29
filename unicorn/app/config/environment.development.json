@@ -1,4 +1,8 @@
 {
   "me": "config.environment.development",
-  "env": "dev"
+  "env": "dev",
+  "logging": {
+    "name": "htmstudio",
+    "level": "debug"
+  }
 }

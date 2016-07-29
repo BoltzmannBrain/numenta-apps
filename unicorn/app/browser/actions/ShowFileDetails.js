@@ -26,6 +26,8 @@ import {ACTIONS} from '../lib/Constants';
  * @emits {SHOW_FILE_DETAILS}
  */
 export default function (actionContext, file) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.SHOW_FILE_DETAILS);
+
   let db = actionContext.getDatabaseClient();
   db.getMetricsByFile(file.uid, (error, metrics) => {
     actionContext.dispatch(ACTIONS.SHOW_FILE_DETAILS, {

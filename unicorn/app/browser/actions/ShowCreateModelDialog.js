@@ -28,6 +28,8 @@ import {ACTIONS} from '../lib/Constants';
  * @emits {SHOW_CREATE_MODEL_DIALOG}
  */
 export default function (actionContext, payload) {
+  actionContext.getGATracker().event('ACTION',
+    ACTIONS.SHOW_CREATE_MODEL_DIALOG);
   let {fileName, metricName} = payload;
   actionContext.dispatch(ACTIONS.SHOW_CREATE_MODEL_DIALOG, {
     fileName, metricName

@@ -27,8 +27,9 @@ export default class UserError extends Error {
    */
   constructor(message, ...args) {
     super(message, ...args);
-    this.message = message;
-    this.stack = (new Error()).stack;
+    this._message = message;
+    this._stack = (new Error()).stack;
+    this.stack = this._stack;
     this.name = this.constructor.name;
   }
 }

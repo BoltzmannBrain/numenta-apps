@@ -29,6 +29,7 @@ import TableRow from 'material-ui/lib/table/table-row';
 import TableRowColumn from 'material-ui/lib/table/table-row-column';
 import TextField from 'material-ui/lib/text-field';
 import Colors from 'material-ui/lib/styles/colors';
+import {shell} from 'electron';
 
 import FileDetailsStore from '../stores/FileDetailsStore';
 import FileUploadAction from '../actions/FileUpload';
@@ -59,7 +60,9 @@ const STYLES = {
   data: {
     display: 'flex',
     flexDirection: 'row',
-    flexGrow: 1,
+    justifyContent: 'flex-start',
+    width: '100%',
+    overflowX: 'auto',
     margin: 'auto',
     border: '1px solid gray'
   },
@@ -67,17 +70,34 @@ const STYLES = {
     height: '2rem'
   },
   tableHeader: {
+    flexGrow: 0,
+    flexShrink: 0,
     overflow: 'hidden',
+    width: '250px',
     height: '2rem',
     textOverflow: 'ellipsis'
   },
   tableColumn: {
+    flexGrow: 0,
+    flexShrink: 0,
     overflow: 'hidden',
+    width: '200px',
     height: '2rem',
     textOverflow: 'ellipsis'
+  },
+  recordsDisplay: {
+    fontStyle: 'italic',
+    marginTop: '2.5rem',
+    whiteSpace: 'nowrap'
+  },
+  supportedFormats: {
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    color: 'grey'
   }
 };
 
+const NO_FILE_SUPPORTED_ERRORS = ['File already exists'];
 
 /**
  * Show file details page. The file must be available from the {@link FileStore}
@@ -86,6 +106,7 @@ const STYLES = {
   file: context.getStore(FileDetailsStore).getFile(),
   fields: context.getStore(FileDetailsStore).getFields(),
   error: context.getStore(FileDetailsStore).getError(),
+  warning: context.getStore(FileDetailsStore).getWarning(),
   visible: context.getStore(FileDetailsStore).isVisible(),
   newFile: context.getStore(FileDetailsStore).isNewFile()
 }))
@@ -146,6 +167,10 @@ export default class FileDetails extends React.Component {
     this.context.executeAction(HideFileDetailsAction);
   }
 
+  _onSupportedFormatsClick() {
+    shell.openExternal('http://numenta.com/htm-studio/#start');
+  }
+
   _onSave() {
     let file = this.props.file;
     if (file) {
@@ -157,11 +182,11 @@ export default class FileDetails extends React.Component {
   _renderDataTable() {
     let {fields, data} = this.state;
     if (fields.length > 0  && data.length > 0) {
-      let columnHeader;
+      let columnHeaders;
       let tableRows = [];
       let tableHeight = this.props.error ? 200 : 250;
 
-      columnHeader = fields.map((field) => {
+      columnHeaders = fields.map((field) => {
         return (
           <TableHeaderColumn key={field.index} style={STYLES.tableHeader}>
             {field.name}
@@ -181,18 +206,20 @@ export default class FileDetails extends React.Component {
 
       return (
         <div style={STYLES.data}>
-          <Table fixedHeader={true} height={tableHeight.toString()}
-              selectable={false}>
-            <TableHeader adjustForCheckbox={false} displaySelectAll={false}
-                         enableSelectAll={false}>
-              <TableRow style={STYLES.tableRow}>
-                {columnHeader}
-              </TableRow>
-            </TableHeader>
-            <TableBody stripedRows={true} displayRowCheckbox={false}>
-              {tableRows}
-            </TableBody>
-          </Table>
+          <div>
+            <Table fixedHeader={true} height={tableHeight.toString()}
+                selectable={false}>
+              <TableHeader adjustForCheckbox={false} displaySelectAll={false}
+                           enableSelectAll={false}>
+                <TableRow style={STYLES.tableRow}>
+                  {columnHeaders}
+                </TableRow>
+              </TableHeader>
+              <TableBody stripedRows={true} displayRowCheckbox={false}>
+                {tableRows}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       );
     }
@@ -200,15 +227,38 @@ export default class FileDetails extends React.Component {
 
   _renderBody() {
     let file = this.props.file;
+    let error, numRecords, recordsDisplay, supportedFormats, warning;
     // File Size in KB
     let fileSize = (this.state.fileSize / 1024).toFixed();
-    let error;
-    if (this.props.error) {
-      error =  (<p style={STYLES.error}>{this.props.error}</p>);
+    let table = this._renderDataTable();
+    if (file && table) {
+      numRecords = (file.records > 20) ? 20 : file.records;
+      recordsDisplay = (<p style={STYLES.recordsDisplay}>
+                          Displaying {numRecords} rows out of {file.records}
+                        </p>);
+    }
+
+    if (this.props.error &&
+      NO_FILE_SUPPORTED_ERRORS.indexOf(this.props.error) === -1) {
+      supportedFormats = (
+          <a style={STYLES.supportedFormats}
+           onClick={this._onSupportedFormatsClick}>
+            supported formats
+          </a>
+      );
+      error = (<p style={STYLES.error}>
+                 {this.props.error} (see {supportedFormats})
+               </p>);
+    } else if (this.props.error) {
+      error = (<p style={STYLES.error}>
+                 {this.props.error}
+               </p>);
+    } else if (this.props.warning) {
+      warning = (<p style={STYLES.error}>{this.props.warning}</p>);
     }
     return (
       <div style={STYLES.container}>
-        {error}
+        {error} {warning}
         <div style={STYLES.fields}>
           <TextField
             floatingLabelText="File Size"
@@ -220,7 +270,7 @@ export default class FileDetails extends React.Component {
             ref="fileSize"
             value={`${fileSize} KB`}/>
           <TextField
-            floatingLabelText="Number of rows"
+            floatingLabelText="Number of valid rows"
             name="numOfRows"
             readOnly={true}
             ref="numOfRows"
@@ -228,8 +278,9 @@ export default class FileDetails extends React.Component {
             underlineFocusStyle={{display:'none'}}
             underlineStyle={{display:'none'}}
             value={file.records.toString()}/>
+            {recordsDisplay}
         </div>
-        {this._renderDataTable()}
+        {table}
       </div>
     );
   }
@@ -237,15 +288,17 @@ export default class FileDetails extends React.Component {
   _renderActions() {
     if (this.props.newFile) {
       return [
-        <FlatButton label="Cancel"
-                    onRequestClose={this._onRequestClose.bind(this)}
-                    onTouchTap={this._onRequestClose.bind(this)}/>,
+        <div>
+          <FlatButton label="Cancel"
+                      onRequestClose={this._onRequestClose.bind(this)}
+                      onTouchTap={this._onRequestClose.bind(this)}/>
 
-        <RaisedButton label="Add File" primary={true} ref="submit"
-                    disabled={this.props.error}
-                    style={STYLES.button}
-                    onRequestClose={this._onRequestClose.bind(this)}
-                    onTouchTap={this._onSave.bind(this)}/>
+          <RaisedButton label="Add File" primary={true} ref="submit"
+                      disabled={this.props.error}
+                      style={STYLES.button}
+                      onRequestClose={this._onRequestClose.bind(this)}
+                      onTouchTap={this._onSave.bind(this)}/>
+        </div>
       ];
     }
     return(<RaisedButton label="Close" primary={true}

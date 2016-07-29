@@ -15,7 +15,7 @@
 //
 // http://numenta.org/licenses/
 
-import {ANOMALY_RED_VALUE, ANOMALY_YELLOW_VALUE} from '../browser/lib/Constants';
+import {ANOMALY_RED_VALUE, ANOMALY_YELLOW_VALUE} from './Constants';
 
 /**
  * Generic Javascript functions that can be used on either the `main` process or
@@ -68,10 +68,7 @@ export function promisify(fn, ...args) {
 }
 
 /**
- * Return the given value using anomaly scale:
- *  - [0.99999, 1]  => 0.3
- *  - [0.9999, 0.99999) => 0.2
- *  - [0, 0.9999) => 0.1
+ * Return the given value using anomaly scale.
  * @param {float} value anomaly value [0 .. 1]
  * @return {float} scaled value
  */
@@ -83,4 +80,55 @@ export function anomalyScale(value) {
     return 0.2;
   }
   return 0.1;
+}
+
+/**
+ * Binary Search sorted array for a given key
+ * @param  {Array} array Sorted array to search elements
+ * @param  {Object} key  Element key to search
+ * @param  {function} compare Comparison function in the following format:
+ *                            ```
+ *                            compare(current, key) => {
+ *                            	if (current < key) return -1;
+ *                            	if (current > key) return 1;
+ *                            	if (current === key) return 0;
+ *                            }
+ *                            ```
+ * @return {integer} element index if found,
+ *                   or 2s complement of the insertion index if not found
+ */
+export function binarySearch(array, key, compare) {
+  let max = array.length - 1;
+  let min = 0;
+  let current,  mid, res;
+  while (min <= max) {
+    mid = (min + max) >>> 1;
+    current = array[mid];
+    res = compare(current, key);
+    if (res < 0) {
+      min = mid + 1;
+    } else if (res > 0) {
+      max = mid - 1;
+    } else {
+      return mid;
+    }
+  }
+  return ~max; // Insertion index
+}
+
+/**
+ * Map Anomaly value to text (HIGH / MEDIUM / LOW)
+ * @param {Number} anomaly - Anomaly value
+ * @returns {String} - Anomaly text
+ */
+export function mapAnomalyText(anomaly) {
+  if (anomaly === null) {
+    return 'N/A';
+  }
+  if (anomaly >= ANOMALY_RED_VALUE) {
+    return 'HIGH';
+  } else if (anomaly >= ANOMALY_YELLOW_VALUE) {
+    return 'MEDIUM';
+  }
+  return 'LOW';
 }

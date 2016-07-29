@@ -42,7 +42,7 @@ export default class Logo extends React.Component {
         backgroundColor: muiTheme.rawTheme.palette.primary2Color,
         borderBottom: '5px solid #29aae2',
         color: muiTheme.appBar.textColor,
-        height: muiTheme.appBar.height * 1.2,
+        height: props.height,
         margin: 0,
         padding: muiTheme.rawTheme.spacing.desktopGutter,
         paddingTop: muiTheme.rawTheme.spacing.desktopGutter - 5,

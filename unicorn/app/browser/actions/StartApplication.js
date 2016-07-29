@@ -30,6 +30,8 @@ import ListModelsAction from '../actions/ListModels';
  * @returns {Promise} - A Promise to be resolved with return value
  */
 export default function (actionContext) {
+  actionContext.getGATracker().event('ACTION', ACTIONS.START_APPLICATION);
+
   return new Promise((resolve, reject) => {
     // Allow stores to initialze
     resolve(actionContext.dispatch(ACTIONS.START_APPLICATION));

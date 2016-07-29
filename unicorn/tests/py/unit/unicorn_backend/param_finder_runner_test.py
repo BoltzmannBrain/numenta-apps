@@ -27,22 +27,13 @@ import csv
 import datetime
 import StringIO
 import json
-import logging
 import os
 import sys
 import tempfile
 import unittest
 from mock import patch
 
-from nta.utils.logging_support_raw import LoggingSupport
 from unicorn_backend import param_finder_runner
-
-_LOGGER = logging.getLogger("unicorn_param_finder_runner_test")
-
-
-
-def setUpModule():
-  LoggingSupport.initTestApp()
 
 
 

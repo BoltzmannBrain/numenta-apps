@@ -50,8 +50,8 @@ from nupic.data import fieldmeta
 from nupic.data import record_stream
 from nupic.frameworks.opf.modelfactory import ModelFactory
 
-from unicorn_backend import date_time_utils
-
+from unicorn_backend.utils import date_time_utils
+from unicorn_backend.utils import na
 
 
 g_log = logging.getLogger(__name__)
@@ -78,7 +78,6 @@ class _Options(object):
     self.inputSpec = inputSpec
     self.aggSpec = aggSpec
     self.modelSpec = modelSpec
-
 
 
 def _parseArgs():
@@ -271,7 +270,9 @@ class _ModelRunner(object):
     :param float anomalyProbability: computed anomaly probability value
     """
 
-    message = "%s\n" % (json.dumps([dataRow[0].isoformat(), dataRow[1], anomalyProbability]),)
+    message = "%s\n" % (json.dumps([dataRow[0].isoformat(),
+                                    dataRow[1],
+                                    anomalyProbability]),)
 
     sys.stdout.write(message)
     sys.stdout.flush()
@@ -319,23 +320,27 @@ class _ModelRunner(object):
         g_log.debug("Skipping header row %s; %s rows left to skip",
                     inputRow, numRowsToSkip)
         continue
-
-      # Extract timestamp and value
-      # NOTE: the order must match the `inputFields` that we passed to the
-      # Aggregator constructor
-      fields = [
-        date_time_utils.parseDatetime(inputRow[inputRowTimestampIndex],
-                                      datetimeFormat),
-        float(inputRow[inputRowValueIndex])
-      ]
-
-      # Aggregate
-      aggRow, _ = self._aggregator.next(fields, None)
-      g_log.debug("Aggregator returned %s for %s", aggRow, fields)
-      if aggRow is not None:
-        self._emitOutputMessage(
-          dataRow=aggRow,
-          anomalyProbability=self._computeAnomalyProbability(aggRow))
+      
+      if len(inputRow) > inputRowValueIndex:
+        if not (na.isNA(str(inputRow[inputRowValueIndex])) or
+         na.isNA(str(inputRow[inputRowTimestampIndex]))):
+          # Extract timestamp and value
+          # NOTE: the order must match the `inputFields` that we passed to the
+          # Aggregator constructor
+  
+          fields = [
+            date_time_utils.parseDatetime(inputRow[inputRowTimestampIndex],
+                                          datetimeFormat),
+            float(inputRow[inputRowValueIndex])
+          ]
+  
+          # Aggregate
+          aggRow, _ = self._aggregator.next(fields, None)
+          g_log.debug("Aggregator returned %s for %s", aggRow, fields)
+          if aggRow is not None:
+            self._emitOutputMessage(
+              dataRow=aggRow,
+              anomalyProbability=self._computeAnomalyProbability(aggRow))
 
 
     # Reap remaining data from aggregator
@@ -387,8 +392,11 @@ class _UnbufferedLineIterInputFile(object):
 def main():
   # Use NullHandler for now to avoid getting the unwanted unformatted warning
   # message from logger on stderr "No handlers could be found for logger".
-  g_log.addHandler(logging.NullHandler())
-
+  #
+  # NOTE We add the handler to the root logger to avoid having the default
+  # StreamHandler implictly added by python logging when something logs via
+  # `logging.debug`, `logging.info`, etc.
+  g_log.root.addHandler(logging.NullHandler())
   inputFileObj = None
   try:
     options = _parseArgs()
@@ -408,12 +416,12 @@ def main():
   except Exception as ex:  # pylint: disable=W0703
     g_log.exception("ModelRunner failed")
 
-    errorMessage = {
+    errorMessage = json.dumps({
       "errorText": str(ex) or repr(ex),
       "diagnosticInfo": traceback.format_exc()
-    }
+    })
 
-    errorMessage = "%s\n" % (json.dumps(errorMessage))
+    errorMessage = "{}\n".format(errorMessage)
 
     try:
       sys.stderr.write(errorMessage)

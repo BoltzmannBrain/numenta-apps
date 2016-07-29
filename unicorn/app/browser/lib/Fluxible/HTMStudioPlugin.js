@@ -26,8 +26,8 @@ export default {
 
   plugContext(options, context, app) {
     let {
-      configClient, loggerClient, databaseClient, fileClient, modelClient,
-      paramFinderClient
+      configClient, logger, databaseClient, fileClient, modelClient,
+      paramFinderClient, gaTracker
     } = options;
 
     return {
@@ -35,8 +35,8 @@ export default {
         actionContext.getConfigClient = function () {
           return configClient;
         };
-        actionContext.getLoggerClient = function () {
-          return loggerClient;
+        actionContext.getLogger = function () {
+          return logger;
         };
         actionContext.getDatabaseClient = function () {
           return databaseClient;
@@ -50,14 +50,17 @@ export default {
         actionContext.getParamFinderClient = function () {
           return paramFinderClient;
         };
+        actionContext.getGATracker = function () {
+          return gaTracker;
+        };
       },
 
       plugComponentContext(componentContext, context, app) {
         componentContext.getConfigClient = function () {
           return configClient;
         };
-        componentContext.getLoggerClient = function () {
-          return loggerClient;
+        componentContext.getLogger = function () {
+          return logger;
         };
         componentContext.getDatabaseClient = function () {
           return databaseClient;
@@ -71,14 +74,17 @@ export default {
         componentContext.getParamFinderClient = function () {
           return paramFinderClient;
         };
+        componentContext.getGATracker = function () {
+          return gaTracker;
+        };
       },
 
       plugStoreContext(storeContext, context, app) {
         storeContext.getConfigClient = function () {
           return configClient;
         };
-        storeContext.getLoggerClient = function () {
-          return loggerClient;
+        storeContext.getLogger = function () {
+          return logger;
         };
         storeContext.getDatabaseClient = function () {
           return databaseClient;
@@ -91,6 +97,9 @@ export default {
         };
         storeContext.getParamFinderClient = function () {
           return paramFinderClient;
+        };
+        storeContext.getGATracker = function () {
+          return gaTracker;
         };
       }
     };

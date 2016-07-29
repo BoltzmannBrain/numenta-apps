@@ -64,6 +64,6 @@ setup(
   include_package_data=True,
   install_requires = installRequires,
   dependency_links = dependencyLinks,
-  tests_require=["mock==1.0.1", "nta.utils>=0.0.0"],
+  tests_require=["mock==1.0.1"],
   cmdclass = {"test": PyTest},
 )

@@ -24,7 +24,10 @@
 
 html {
   box-sizing: border-box;
+  /* Avoid the scroll top/bottom bounce effect. Don't let the html tag scroll. */
+  width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 *, *:before, *:after {
@@ -92,23 +95,42 @@ div.loading > div > svg > circle {
 }
 
 .dygraph-rangesel-bgcanvas {
-  cursor: pointer !important;
   z-index: 10 !important;
 }
 
 .dygraph-rangesel-fgcanvas {
-  cursor: pointer !important;
-  z-index: 30 !important;
+  display:none;
 }
 
 .dygraph-rangeselbarchart-canvas {
-  cursor: pointer !important;
   opacity: 0.666 !important;
   z-index: 20 !important;
 }
 
 img.dygraph-rangesel-zoomhandle {
-  /* do not set display:none, it'll break dygraps range selector */
-  cursor: pointer !important;
-  opacity: 0 !important;
+  display: none;
+}
+
+.brush.brushing rect {
+  cursor: crosshair;
+}
+
+.brush.grabbing {
+  cursor: move;
+  cursor: -webkit-grabbing;
+  cursor: grabbing;
+}
+
+.brush .background {
+  cursor: crosshair;
+}
+
+.brush .extent {
+  cursor: move;
+  cursor: -webkit-grab;
+  cursor: grab;
+}
+
+.brush .resize {
+  cursor: ew-resize;
 }
